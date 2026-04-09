@@ -17,7 +17,7 @@ load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 
-# ✅ STEP 1: Ensure vector DB exists (ONLY when needed)
+# ✅ STEP 1: Ensure vector DB exists
 def ensure_vector_db():
     if not os.path.exists("backend/rag/faiss_index"):
         print("⚡ Creating FAISS index (first run)...")
@@ -27,7 +27,7 @@ def ensure_vector_db():
 
 # ✅ STEP 2: Load retriever
 def get_retriever():
-    ensure_vector_db()  # 🔥 important
+    ensure_vector_db()
 
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2"
@@ -49,8 +49,9 @@ def ask_question(query):
 
     context = "\n\n".join([doc.page_content for doc in docs])
 
+    # 🔥 STRONG PROFESSIONAL PROMPT
     prompt = f"""
-You are an expert Indian legal advisor.
+You are a professional Indian lawyer with practical courtroom experience.
 
 Use ONLY the context below.
 
@@ -60,10 +61,13 @@ Context:
 User Question:
 {query}
 
-IMPORTANT:
-- Return ONLY JSON
+IMPORTANT RULES:
+- Return ONLY valid JSON
 - No markdown or extra text
-- Detect case type
+- Give PRACTICAL legal advice (not generic)
+- Mention specific laws (like Contract Act, Transfer of Property Act)
+- Explain BOTH sides (tenant & landlord if applicable)
+- Steps must be actionable and realistic
 
 Case types:
 - rent
@@ -77,15 +81,19 @@ Format:
 
 {{
   "case_type": "rent | fraud | job | other",
-  "law": "relevant Indian law",
-  "explanation": "simple explanation (Hindi + English mix)",
-  "steps": ["step1", "step2"],
+  "law": "specific Indian law with section if possible",
+  "explanation": "clear practical explanation in Hinglish",
+  "steps": [
+    "clear actionable step 1",
+    "clear actionable step 2",
+    "clear actionable step 3"
+  ],
   "notice_points": [
-    "legal sentence 1",
-    "legal sentence 2",
-    "legal sentence 3",
-    "legal sentence 4",
-    "legal sentence 5"
+    "You are hereby called upon to refund the security deposit amount of Rs. [amount] within 15 days from the receipt of this notice, failing which legal proceedings shall be initiated against you.",
+    "As per the terms of the rent agreement and applicable laws, you are legally bound to return the deposit amount after deduction of legitimate charges, if any.",
+    "Your failure to refund the said amount constitutes a breach of contract and unlawful retention of funds.",
+    "In case of non-compliance, the tenant reserves the right to initiate legal proceedings including recovery suit and claim for damages.",
+    "You are advised to comply within the stipulated time to avoid legal consequences."
   ]
 }}
 """
@@ -93,7 +101,7 @@ Format:
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.3,
+        temperature=0.2,  # 🔥 more stable output
     )
 
     response_text = response.choices[0].message.content
@@ -112,7 +120,7 @@ Format:
         return {
             "case_type": "other",
             "law": "N/A",
-            "explanation": "Could not process response properly.",
+            "explanation": "System could not generate proper legal advice.",
             "steps": [],
             "notice_points": []
         }
@@ -120,7 +128,7 @@ Format:
     return data
 
 
-# ✅ CLI testing (optional)
+# ✅ CLI test
 if __name__ == "__main__":
     q = input("Enter your legal question: ")
     ans = ask_question(q)

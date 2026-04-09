@@ -47,7 +47,23 @@ def ask_question(query):
     retriever = get_retriever()
     docs = retriever.invoke(query)
 
-    context = "\n\n".join([doc.page_content for doc in docs])
+    # 🔥 CONTEXT CLEANING (HALLUCINATION FIX)
+    filtered_docs = []
+    for doc in docs:
+        text = doc.page_content
+
+        # Remove noisy legal citations
+        if "AIR" in text or "SCR" in text:
+            continue
+
+        # Trim long text
+        if len(text) > 1000:
+            text = text[:1000]
+
+        if text.strip():
+            filtered_docs.append(text)
+
+    context = "\n\n".join(filtered_docs)
 
     # 🔥 FINAL PRODUCTION PROMPT
     prompt = f"""
@@ -65,7 +81,7 @@ IMPORTANT RULES:
 - Return ONLY valid JSON (no markdown, no extra text)
 - Give practical legal reasoning (not generic)
 - Analyze BOTH sides (tenant and landlord if applicable)
-- Prefer the MOST relevant SINGLE law (avoid listing multiple laws)
+- Prefer the MOST relevant SINGLE law
 - Mention exact section if possible (e.g., Section 108, Transfer of Property Act, 1882)
 - Explain practical implications (notice period, deduction vs adjustment of deposit)
 - Use correct legal terminology (avoid "forfeit", prefer "deduct" or "adjust")

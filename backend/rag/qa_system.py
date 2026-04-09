@@ -66,7 +66,9 @@ IMPORTANT RULES:
 - Give practical legal reasoning (not generic)
 - Analyze BOTH sides (tenant and landlord)
 - Mention when landlord can legally deduct deposit
-- Highlight real-world dispute scenarios
+- DO NOT assume facts not given in question
+- DO NOT include random case details (rent, duration, etc.)
+- Use general legal principles if exact facts are unclear
 - Steps must be actionable
 
 Case types:
@@ -81,12 +83,12 @@ Format:
 
 {{
   "case_type": "rent | fraud | job | other",
-  "law": "specific law with section",
-  "explanation": "deep practical explanation in Hinglish",
+  "law": "correct Indian law (accurate section)",
+  "explanation": "clear practical explanation (Hinglish)",
   "steps": [
-    "clear actionable step 1",
-    "clear actionable step 2",
-    "clear actionable step 3"
+    "step 1",
+    "step 2",
+    "step 3"
   ],
   "notice_points": [
     "legal sentence 1",

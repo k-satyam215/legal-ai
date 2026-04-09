@@ -51,7 +51,7 @@ def ask_question(query):
 
     # 🔥 STRONG PROFESSIONAL PROMPT
     prompt = f"""
-You are a professional Indian lawyer with practical courtroom experience.
+You are a professional Indian lawyer with courtroom experience.
 
 Use ONLY the context below.
 
@@ -62,12 +62,12 @@ User Question:
 {query}
 
 IMPORTANT RULES:
-- Return ONLY valid JSON
-- No markdown or extra text
-- Give PRACTICAL legal advice (not generic)
-- Mention specific laws (like Contract Act, Transfer of Property Act)
-- Explain BOTH sides (tenant & landlord if applicable)
-- Steps must be actionable and realistic
+- Return ONLY JSON
+- Give practical legal reasoning (not generic)
+- Analyze BOTH sides (tenant and landlord)
+- Mention when landlord can legally deduct deposit
+- Highlight real-world dispute scenarios
+- Steps must be actionable
 
 Case types:
 - rent
@@ -75,25 +75,25 @@ Case types:
 - job
 - other
 
-If case is NOT rent → return empty notice_points []
+If case is NOT rent → notice_points = []
 
 Format:
 
 {{
   "case_type": "rent | fraud | job | other",
-  "law": "specific Indian law with section if possible",
-  "explanation": "clear practical explanation in Hinglish",
+  "law": "specific law with section",
+  "explanation": "deep practical explanation in Hinglish",
   "steps": [
     "clear actionable step 1",
     "clear actionable step 2",
     "clear actionable step 3"
   ],
   "notice_points": [
-    "You are hereby called upon to refund the security deposit amount of Rs. [amount] within 15 days from the receipt of this notice, failing which legal proceedings shall be initiated against you.",
-    "As per the terms of the rent agreement and applicable laws, you are legally bound to return the deposit amount after deduction of legitimate charges, if any.",
-    "Your failure to refund the said amount constitutes a breach of contract and unlawful retention of funds.",
-    "In case of non-compliance, the tenant reserves the right to initiate legal proceedings including recovery suit and claim for damages.",
-    "You are advised to comply within the stipulated time to avoid legal consequences."
+    "legal sentence 1",
+    "legal sentence 2",
+    "legal sentence 3",
+    "legal sentence 4",
+    "legal sentence 5"
   ]
 }}
 """

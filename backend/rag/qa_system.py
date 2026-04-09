@@ -17,7 +17,6 @@ load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 
-# ✅ STEP 1: Ensure vector DB exists
 def ensure_vector_db():
     if not os.path.exists("backend/rag/faiss_index"):
         print("⚡ Creating FAISS index (first run)...")
@@ -25,7 +24,6 @@ def ensure_vector_db():
         create_vector_db()
 
 
-# ✅ STEP 2: Load retriever
 def get_retriever():
     ensure_vector_db()
 
@@ -42,21 +40,18 @@ def get_retriever():
     return db.as_retriever(search_kwargs={"k": 3})
 
 
-# ✅ STEP 3: Ask question
 def ask_question(query):
     retriever = get_retriever()
     docs = retriever.invoke(query)
 
-    # 🔥 CONTEXT CLEANING (HALLUCINATION FIX)
+    # 🔥 CONTEXT CLEANING
     filtered_docs = []
     for doc in docs:
         text = doc.page_content
 
-        # Remove noisy legal citations
         if "AIR" in text or "SCR" in text:
             continue
 
-        # Trim long text
         if len(text) > 1000:
             text = text[:1000]
 
@@ -65,7 +60,7 @@ def ask_question(query):
 
     context = "\n\n".join(filtered_docs)
 
-    # 🔥 FINAL PRODUCTION PROMPT
+    # 🔥 FINAL PROMPT (UPDATED)
     prompt = f"""
 You are a professional Indian lawyer with real courtroom experience.
 
@@ -81,6 +76,7 @@ IMPORTANT RULES:
 - Return ONLY valid JSON (no markdown, no extra text)
 - Give practical legal reasoning (not generic)
 - Analyze BOTH sides (tenant and landlord if applicable)
+- Always clearly mention when landlord can legally deduct deposit
 - Prefer the MOST relevant SINGLE law
 - Mention exact section if possible (e.g., Section 108, Transfer of Property Act, 1882)
 - Explain practical implications (notice period, deduction vs adjustment of deposit)
@@ -131,11 +127,11 @@ Format:
     response_text = response.choices[0].message.content
     print("\n📦 RAW RESPONSE:\n", response_text)
 
-    # ✅ Clean markdown safely
+    # ✅ Clean markdown
     response_text = response_text.strip()
     response_text = response_text.replace("```json", "").replace("```", "")
 
-    # ✅ Safe JSON extraction
+    # ✅ JSON parse
     try:
         match = re.search(r"\{[\s\S]*\}", response_text)
         if match:
@@ -146,12 +142,10 @@ Format:
 
     except Exception as e:
         print("❌ JSON parse error:", e)
-        print("🔍 RAW RESPONSE:", response_text)
-
         return {
             "case_type": "other",
             "law": "Parsing Error",
-            "explanation": "System could not process the response properly. Please try again.",
+            "explanation": "System could not process response properly.",
             "steps": [],
             "notice_points": []
         }
@@ -159,7 +153,6 @@ Format:
     return data
 
 
-# ✅ CLI test
 if __name__ == "__main__":
     q = input("Enter your legal question: ")
     ans = ask_question(q)

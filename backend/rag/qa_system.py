@@ -65,10 +65,11 @@ IMPORTANT RULES:
 - Return ONLY JSON
 - Give practical legal reasoning (not generic)
 - Analyze BOTH sides (tenant and landlord)
-- Mention when landlord can legally deduct deposit
+- Prefer most relevant SINGLE law (avoid listing many)
+- Mention exact section if possible (e.g., Section 108 Transfer of Property Act)
+- Explain practical implications (notice period, deduction vs forfeiture)
 - DO NOT assume facts not given in question
-- DO NOT include random case details (rent, duration, etc.)
-- Use general legal principles if exact facts are unclear
+- DO NOT include random case details
 - Steps must be actionable
 
 Case types:
@@ -83,8 +84,8 @@ Format:
 
 {{
   "case_type": "rent | fraud | job | other",
-  "law": "correct Indian law (accurate section)",
-  "explanation": "clear practical explanation (Hinglish)",
+  "law": "most relevant law with section",
+  "explanation": "deep practical explanation in Hinglish",
   "steps": [
     "step 1",
     "step 2",

@@ -49,9 +49,9 @@ def ask_question(query):
 
     context = "\n\n".join([doc.page_content for doc in docs])
 
-    # 🔥 STRONG PROFESSIONAL PROMPT
+    # 🔥 FINAL PRODUCTION PROMPT
     prompt = f"""
-You are a professional Indian lawyer with courtroom experience.
+You are a professional Indian lawyer with real courtroom experience.
 
 Use ONLY the context below.
 
@@ -62,15 +62,20 @@ User Question:
 {query}
 
 IMPORTANT RULES:
-- Return ONLY JSON
+- Return ONLY valid JSON (no markdown, no extra text)
 - Give practical legal reasoning (not generic)
-- Analyze BOTH sides (tenant and landlord)
-- Prefer most relevant SINGLE law (avoid listing many)
-- Mention exact section if possible (e.g., Section 108 Transfer of Property Act)
-- Explain practical implications (notice period, deduction vs forfeiture)
-- DO NOT assume facts not given in question
-- DO NOT include random case details
-- Steps must be actionable
+- Analyze BOTH sides (tenant and landlord if applicable)
+- Prefer the MOST relevant SINGLE law (avoid listing multiple laws)
+- Mention exact section if possible (e.g., Section 108, Transfer of Property Act, 1882)
+- Explain practical implications (notice period, deduction vs adjustment of deposit)
+- Use correct legal terminology (avoid "forfeit", prefer "deduct" or "adjust")
+- DO NOT assume facts not given in the question
+- DO NOT include random case details (rent, duration, etc.)
+- If facts are unclear, give general legal principle-based answer
+- Steps must follow this structure:
+  1. Communication / Legal Notice
+  2. Evidence Collection
+  3. Legal Action
 
 Case types:
 - rent
@@ -85,18 +90,18 @@ Format:
 {{
   "case_type": "rent | fraud | job | other",
   "law": "most relevant law with section",
-  "explanation": "deep practical explanation in Hinglish",
+  "explanation": "clear practical explanation in Hinglish (include both sides)",
   "steps": [
-    "step 1",
-    "step 2",
-    "step 3"
+    "Step 1: ...",
+    "Step 2: ...",
+    "Step 3: ..."
   ],
   "notice_points": [
-    "legal sentence 1",
-    "legal sentence 2",
-    "legal sentence 3",
-    "legal sentence 4",
-    "legal sentence 5"
+    "You are hereby called upon to refund the security deposit amount of Rs. [amount] within 15 days from the receipt of this notice, failing which legal proceedings shall be initiated against you.",
+    "As per the terms of the rent agreement and applicable laws, you are legally bound to return the deposit amount after deduction of legitimate charges, if any.",
+    "Your failure to refund the said amount constitutes a breach of contractual obligations.",
+    "In case of non-compliance, the tenant reserves the right to initiate legal proceedings including a recovery suit and claim for damages.",
+    "You are advised to comply within the stipulated time to avoid legal consequences."
   ]
 }}
 """
@@ -110,11 +115,11 @@ Format:
     response_text = response.choices[0].message.content
     print("\n📦 RAW RESPONSE:\n", response_text)
 
-    # ✅ Clean markdown safely (IMPORTANT FIX)
+    # ✅ Clean markdown safely
     response_text = response_text.strip()
     response_text = response_text.replace("```json", "").replace("```", "")
 
-    # ✅ Safe JSON extraction (FIXED)
+    # ✅ Safe JSON extraction
     try:
         match = re.search(r"\{[\s\S]*\}", response_text)
         if match:
@@ -130,7 +135,7 @@ Format:
         return {
             "case_type": "other",
             "law": "Parsing Error",
-            "explanation": "System could not properly process the response. Please try again.",
+            "explanation": "System could not process the response properly. Please try again.",
             "steps": [],
             "notice_points": []
         }

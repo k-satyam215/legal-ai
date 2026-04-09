@@ -101,26 +101,33 @@ Format:
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,  # 🔥 more stable output
+        temperature=0.2,
     )
 
     response_text = response.choices[0].message.content
     print("\n📦 RAW RESPONSE:\n", response_text)
 
-    # ✅ Clean markdown safely
+    # ✅ Clean markdown safely (IMPORTANT FIX)
     response_text = response_text.strip()
-    response_text = re.sub(r"```.*?```", "", response_text, flags=re.DOTALL)
+    response_text = response_text.replace("```json", "").replace("```", "")
 
-    # ✅ Safe JSON extraction
+    # ✅ Safe JSON extraction (FIXED)
     try:
-        json_text = re.search(r"\{.*\}", response_text, re.DOTALL).group()
-        data = json.loads(json_text)
+        match = re.search(r"\{[\s\S]*\}", response_text)
+        if match:
+            json_text = match.group()
+            data = json.loads(json_text)
+        else:
+            raise ValueError("No JSON found")
+
     except Exception as e:
         print("❌ JSON parse error:", e)
+        print("🔍 RAW RESPONSE:", response_text)
+
         return {
             "case_type": "other",
-            "law": "N/A",
-            "explanation": "System could not generate proper legal advice.",
+            "law": "Parsing Error",
+            "explanation": "System could not properly process the response. Please try again.",
             "steps": [],
             "notice_points": []
         }

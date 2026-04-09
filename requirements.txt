@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+langchain
+openai
+load-dotenv
+faiss-cpu
+pypdf
+sentence-transformers
+pymupdf
+groq
+langchain-core
+langchain-community
+langchain-text-splitters
+langchain-huggingface
+reportlab
+streamlit

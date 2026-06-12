@@ -1,0 +1,126 @@
+{
+  "rent": {
+    "laws": [
+      {
+        "name": "Transfer of Property Act, 1882",
+        "key_sections": ["Section 108", "Section 105", "Section 111"],
+        "description": "Section 108 governs rights and liabilities of lessor and lessee including return of premises and security deposit."
+      },
+      {
+        "name": "Delhi Rent Control Act, 1958",
+        "key_sections": ["Section 14", "Section 50"],
+        "description": "Governs rent, eviction, and security deposit in Delhi."
+      },
+      {
+        "name": "Maharashtra Rent Control Act, 1999",
+        "key_sections": ["Section 15", "Section 16"],
+        "description": "Governs tenancy rights in Maharashtra."
+      }
+    ],
+    "typical_steps": [
+      "Document all communications with landlord in writing",
+      "Send a legal notice via registered AD post within 30 days of vacating",
+      "File complaint in Rent Control Court or Civil Court",
+      "Claim interest on delayed deposit refund at 6-12% per annum"
+    ],
+    "risk_factors": {
+      "high": ["Oral agreement only", "No receipts", "Property damage claimed by landlord"],
+      "low": ["Written agreement", "Receipts available", "Photos of property condition"]
+    }
+  },
+  "consumer": {
+    "laws": [
+      {
+        "name": "Consumer Protection Act, 2019",
+        "key_sections": ["Section 2(7)", "Section 35", "Section 47", "Section 58"],
+        "description": "Provides for consumer rights, deficiency of service, and complaint forums."
+      },
+      {
+        "name": "Consumer Protection (E-Commerce) Rules, 2020",
+        "key_sections": ["Rule 4", "Rule 6"],
+        "description": "Governs e-commerce platform liability."
+      }
+    ],
+    "typical_steps": [
+      "File complaint with company's grievance officer (mandatory first step)",
+      "If unresolved in 30 days, file at DCDRC (claims up to ₹50 lakh)",
+      "Attach all bills, receipts, and communication screenshots",
+      "Claim refund + compensation + litigation costs"
+    ],
+    "forums": {
+      "district": "Claims up to ₹50 lakh",
+      "state": "Claims ₹50 lakh to ₹2 crore",
+      "national": "Claims above ₹2 crore"
+    }
+  },
+  "criminal": {
+    "laws": [
+      {
+        "name": "Bharatiya Nyaya Sanhita, 2023",
+        "key_sections": ["Section 318", "Section 316", "Section 420"],
+        "description": "New criminal code replacing IPC. Section 318 covers cheating."
+      },
+      {
+        "name": "Code of Criminal Procedure (BNSS), 2023",
+        "key_sections": ["Section 479", "Section 480"],
+        "description": "Bail provisions under new code."
+      },
+      {
+        "name": "Information Technology Act, 2000",
+        "key_sections": ["Section 66C", "Section 66D"],
+        "description": "Cyber fraud and identity theft."
+      }
+    ],
+    "typical_steps": [
+      "File FIR at nearest police station (Section 154 BNSS)",
+      "If police refuses FIR, file complaint before Magistrate",
+      "Apply for anticipatory bail if arrest feared",
+      "Engage criminal lawyer immediately"
+    ]
+  },
+  "employment": {
+    "laws": [
+      {
+        "name": "Industrial Disputes Act, 1947",
+        "key_sections": ["Section 2(oo)", "Section 25F", "Section 25N"],
+        "description": "Governs wrongful termination, retrenchment, and compensation."
+      },
+      {
+        "name": "Payment of Wages Act, 1936",
+        "key_sections": ["Section 4", "Section 15"],
+        "description": "Ensures timely wage payment."
+      },
+      {
+        "name": "Shops and Establishments Act",
+        "key_sections": ["Varies by state"],
+        "description": "Governs service conditions for shop and establishment workers."
+      }
+    ],
+    "typical_steps": [
+      "Send written representation to HR / management",
+      "File complaint with Labour Commissioner",
+      "Raise industrial dispute before Labour Court",
+      "Claim retrenchment compensation + back wages"
+    ]
+  },
+  "general": {
+    "laws": [
+      {
+        "name": "Code of Civil Procedure, 1908",
+        "key_sections": ["Order VII Rule 1", "Section 9", "Section 89"],
+        "description": "General civil suits, jurisdiction, and mediation."
+      },
+      {
+        "name": "Limitation Act, 1963",
+        "key_sections": ["Section 3", "Article 36", "Article 113"],
+        "description": "Time limits for filing suits (3 years for money recovery)."
+      }
+    ],
+    "typical_steps": [
+      "Consult a qualified advocate for case-specific advice",
+      "Gather all documentary evidence",
+      "Send legal notice as first step",
+      "File suit in appropriate court within limitation period"
+    ]
+  }
+}

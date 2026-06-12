@@ -1,0 +1,36 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# FAISS / BM25 indexes (large binary artifacts, regenerate via pipeline)
+backend/rag/faiss_index.index
+backend/rag/faiss_index_metadata.json
+backend/rag/faiss_index_offsets.npy
+backend/rag/bm25_index.pkl
+
+# Data corpus (large)
+backend/data/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+coverage.xml
+
+# OS / IDE
+.DS_Store
+.vscode/
+*.log

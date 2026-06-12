@@ -1,0 +1,74 @@
+[
+  {
+    "id": "TC001",
+    "query": "Landlord is not returning my security deposit of 50000 rupees after 2 months of vacating the flat",
+    "expected_case_type": "rent",
+    "expected_law_keywords": ["Transfer of Property", "Section 108", "deposit"],
+    "expected_risk_level": "medium",
+    "expected_notice_applicable": true,
+    "min_steps": 2
+  },
+  {
+    "id": "TC002",
+    "query": "I bought a washing machine from Flipkart but it stopped working in 2 months. Company is refusing to replace it.",
+    "expected_case_type": "consumer",
+    "expected_law_keywords": ["Consumer Protection Act", "2019", "deficiency"],
+    "expected_risk_level": "low",
+    "expected_notice_applicable": true,
+    "min_steps": 2
+  },
+  {
+    "id": "TC003",
+    "query": "I was fired from my job without any notice or severance pay after 5 years of service",
+    "expected_case_type": "employment",
+    "expected_law_keywords": ["Industrial Disputes", "retrenchment", "Section 25F"],
+    "expected_risk_level": "medium",
+    "expected_notice_applicable": true,
+    "min_steps": 2
+  },
+  {
+    "id": "TC004",
+    "query": "Someone cheated me of 2 lakh rupees by promising fake job abroad",
+    "expected_case_type": "criminal",
+    "expected_law_keywords": ["IPC", "BNS", "cheating", "fraud", "Section"],
+    "expected_risk_level": "high",
+    "expected_notice_applicable": false,
+    "min_steps": 2
+  },
+  {
+    "id": "TC005",
+    "query": "My neighbour is constantly making noise at night affecting my sleep",
+    "expected_case_type": "general",
+    "expected_law_keywords": [],
+    "expected_risk_level": "low",
+    "expected_notice_applicable": false,
+    "min_steps": 1
+  },
+  {
+    "id": "TC006",
+    "query": "Online shopping site delivered wrong product and now refusing full refund",
+    "expected_case_type": "consumer",
+    "expected_law_keywords": ["Consumer Protection"],
+    "expected_risk_level": "low",
+    "expected_notice_applicable": true,
+    "min_steps": 2
+  },
+  {
+    "id": "TC007",
+    "query": "Landlord is threatening to cut electricity if I don't vacate immediately",
+    "expected_case_type": "rent",
+    "expected_law_keywords": ["Transfer of Property", "eviction"],
+    "expected_risk_level": "high",
+    "expected_notice_applicable": true,
+    "min_steps": 2
+  },
+  {
+    "id": "TC008",
+    "query": "Company has not paid my salary for last 3 months",
+    "expected_case_type": "employment",
+    "expected_law_keywords": ["Payment of Wages", "salary"],
+    "expected_risk_level": "medium",
+    "expected_notice_applicable": true,
+    "min_steps": 2
+  }
+]

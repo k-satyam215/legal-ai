@@ -1,4 +1,13 @@
 services:
+  redis:
+    image: redis:latest
+    container_name: legal-ai-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
   backend:
     build:
       context: .
@@ -10,6 +19,10 @@ services:
       - .env
     environment:
       - ALLOWED_ORIGINS=*
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
     volumes:
       - ./backend/rag:/app/backend/rag
       - ./backend/data:/app/backend/data
@@ -34,3 +47,6 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  redis_data:

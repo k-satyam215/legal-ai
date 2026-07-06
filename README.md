@@ -1,6 +1,6 @@
 # AI Legal Advisor — India v2 (Production)
 
-![CI](https://github.com/<your-username>/legal-ai/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/k-satyam215/legal-ai/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.11-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 

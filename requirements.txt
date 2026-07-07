@@ -46,3 +46,6 @@ urllib3<2.0
 
 # ─── Redis Cache ─────────────────────────────────────────
 redis==5.0.1
+
+# ─── Deploy-time data download (HuggingFace Spaces) ──────
+gdown==5.2.0

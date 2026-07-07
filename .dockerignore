@@ -10,3 +10,4 @@ htmlcov
 tests/
 .github/
 README.md
+backend/data/

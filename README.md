@@ -1,3 +1,13 @@
+---
+title: AI Legal Advisor India
+emoji: ⚖️
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 8501
+pinned: false
+---
+
 # AI Legal Advisor — India v2 (Production)
 
 ![CI](https://github.com/k-satyam215/legal-ai/actions/workflows/ci.yml/badge.svg)

@@ -17,8 +17,137 @@ from backend.core.prompts import (
 )
 from backend.v2.query_understanding import understand_query
 from backend.v2.smart_retriever import smart_retrieve, build_optimized_context
+from backend.v2.chat_engine import _detect_intent
 
 logger = logging.getLogger(__name__)
+
+# ─── Known-intent quick templates ─────────────────────────────────────────────
+# Mirrors chat_engine._QUICK_CARDS content (same source of truth, structured
+# for the Quick Analysis card instead of markdown). Bypasses RAG+LLM entirely
+# for these well-understood patterns, avoiding misclassification-driven
+# retrieval noise (e.g. 'general' anchor pulling in unrelated case law).
+_STRUCTURED_QUICK: dict[str, dict] = {
+    "phone_lost": {
+        "issue": "Mobile phone lost (not stolen)",
+        "case_type": "general",
+        "laws": ["CrPC Section 154 (FIR)", "DoT CEIR Portal"],
+        "analysis": "Loss of a mobile phone requires an FIR to be filed under CrPC Section 154, which enables tracing and blocking of the device via IMEI. The DoT's CEIR portal allows IMEI blocking to prevent misuse.",
+        "steps": [
+            "File FIR at the nearest police station under CrPC Section 154",
+            "Block IMEI at ceir.gov.in (Department of Telecommunications)",
+            "Contact your carrier to block the SIM card",
+        ],
+        "risk_level": "LOW — property loss without criminal element",
+        "strategy": "Report promptly to police and telecom provider to prevent misuse of the device.",
+        "notice_applicable": False,
+        "follow_up_questions": ["What documents are required to file an FIR?", "Can I track my phone after filing the FIR?"],
+    },
+    "phone_stolen": {
+        "issue": "Mobile phone stolen",
+        "case_type": "criminal",
+        "laws": ["IPC Section 379 / BNS Section 303", "CrPC Section 154"],
+        "analysis": "Mobile phone theft is a cognizable offence under IPC Section 379, requiring mandatory FIR registration under CrPC Section 154. Police are legally bound to register the FIR and investigate.",
+        "steps": [
+            "File FIR immediately — IPC Section 379 / BNS Section 303",
+            "Block IMEI: ceir.gov.in and contact carrier for SIM block",
+            "Change all banking and account passwords immediately",
+        ],
+        "risk_level": "MEDIUM — financial loss risk if banking apps were accessed",
+        "strategy": "File FIR immediately and secure linked financial accounts.",
+        "notice_applicable": False,
+        "follow_up_questions": ["What if police refuse to register the FIR?", "How do I claim insurance for the stolen phone?"],
+    },
+    "deposit_refund": {
+        "issue": "Landlord not returning security deposit",
+        "case_type": "rent",
+        "laws": ["Transfer of Property Act 1882, Section 108"],
+        "analysis": "Under Section 108 of the Transfer of Property Act 1882, a landlord is legally obligated to return the security deposit upon vacation of premises, subject to legitimate deductions. Failure to do so constitutes a breach of tenancy rights.",
+        "steps": [
+            "Send written demand via WhatsApp and email (creates documentary evidence)",
+            "Issue Registered AD legal notice citing TPA Section 108",
+            "File recovery suit in Rent Control Court or Civil Court",
+        ],
+        "risk_level": "MEDIUM — prolonged litigation if no written agreement",
+        "strategy": "Escalate via written notice before pursuing court action.",
+        "notice_applicable": True,
+        "follow_up_questions": ["What deductions can the landlord legally make from the deposit?", "How do I draft a legal notice for deposit refund?"],
+    },
+    "consumer_complaint": {
+        "issue": "Deficient goods/service — consumer complaint",
+        "case_type": "consumer",
+        "laws": ["Consumer Protection Act 2019, Section 35"],
+        "analysis": "Under Section 35 of the Consumer Protection Act 2019, any consumer can file a complaint before the District Consumer Disputes Redressal Commission for deficiency of service or defective goods. The complainant is entitled to refund, replacement, and compensation.",
+        "steps": [
+            "File written complaint with company's grievance officer (mandatory first step)",
+            "Wait 30 days — if unresolved, file at consumerhelpline.gov.in",
+            "File complaint at DCDRC for claims up to ₹50 lakhs",
+        ],
+        "risk_level": "LOW — strong consumer protection legislation",
+        "strategy": "Exhaust grievance officer route first, then escalate to DCDRC.",
+        "notice_applicable": True,
+        "follow_up_questions": ["What documents are required for the consumer complaint?", "What compensation can I claim apart from refund?"],
+    },
+    "salary_unpaid": {
+        "issue": "Unpaid salary / wages",
+        "case_type": "employment",
+        "laws": ["Payment of Wages Act 1936, Section 15", "Industrial Disputes Act 1947"],
+        "analysis": "Under Section 15 of the Payment of Wages Act 1936, an employee can file a claim before the Payment of Wages Authority for unpaid wages. Additionally, a complaint to the Labour Commissioner can initiate departmental action against the employer.",
+        "steps": [
+            "Send formal written demand to HR and management via email",
+            "File complaint with Labour Commissioner (state-specific office)",
+            "File claim under Payment of Wages Act Section 15 before the authority",
+        ],
+        "risk_level": "MEDIUM — depends on employment classification and documentation",
+        "strategy": "Send written demand first, then escalate to Labour Commissioner.",
+        "notice_applicable": True,
+        "follow_up_questions": ["Am I eligible if I was employed on contract basis?", "What interest or penalty can I claim on delayed wages?"],
+    },
+    "fir_refused": {
+        "issue": "Police refusing to register FIR",
+        "case_type": "criminal",
+        "laws": ["CrPC Section 154", "CrPC Section 156(3)"],
+        "analysis": "Under CrPC Section 154, registration of FIR for cognizable offences is mandatory and police cannot refuse. If refused, Section 156(3) CrPC enables a Magistrate to direct investigation.",
+        "steps": [
+            "Submit written complaint to SP/DCP of the district",
+            "File application before Magistrate under CrPC Section 156(3)",
+            "File online complaint at cybercrime.gov.in for cyber-related matters",
+        ],
+        "risk_level": "HIGH — delay in FIR can affect evidence and investigation",
+        "strategy": "Escalate to SP/DCP in writing, then Magistrate if still refused.",
+        "notice_applicable": False,
+        "follow_up_questions": ["What is the procedure for filing a Section 156(3) application?", "Can I file an FIR at any police station or only the local one?"],
+    },
+    "eviction": {
+        "issue": "Forceful/illegal eviction by landlord",
+        "case_type": "rent",
+        "laws": ["Transfer of Property Act 1882, Section 108", "IPC Section 441"],
+        "analysis": "Under TPA Section 108, a landlord cannot evict a tenant without following due legal process, and any forceful eviction or disconnection of utilities constitutes an offence under IPC Section 441 (criminal trespass).",
+        "steps": [
+            "File police complaint — IPC Section 441 for criminal trespass",
+            "File urgent application at Rent Control Court for stay of eviction",
+            "Document all communication and threats as evidence",
+        ],
+        "risk_level": "HIGH — immediate action required to prevent illegal eviction",
+        "strategy": "File police complaint and seek urgent stay order in parallel.",
+        "notice_applicable": True,
+        "follow_up_questions": ["What is the legal eviction procedure a landlord must follow?", "Can I claim damages for illegal eviction attempt?"],
+    },
+    "cyber_fraud": {
+        "issue": "Cyber/online financial fraud",
+        "case_type": "criminal",
+        "laws": ["IT Act 2000 Section 66D", "IPC Section 420 / BNS Section 318"],
+        "analysis": "Cyber fraud involving financial loss is punishable under IT Act Section 66D (cheating by impersonation online) and IPC Section 420 (cheating). Immediate reporting to cybercrime.gov.in and the bank is critical for fund recovery.",
+        "steps": [
+            "Report immediately at cybercrime.gov.in (National Cybercrime Reporting Portal)",
+            "Call your bank immediately — request transaction hold or reversal",
+            "File FIR at local police station citing IT Act Section 66D",
+        ],
+        "risk_level": "HIGH — funds recovery depends on speed of reporting",
+        "strategy": "Report to bank and cybercrime portal within the first hour for best recovery odds.",
+        "notice_applicable": False,
+        "follow_up_questions": ["What evidence should I preserve for the cyber fraud complaint?", "Is there a time limit to report and recover funds?"],
+    },
+}
 
 _TPL_PATH = Path(__file__).resolve().parents[2] / "data_pipeline" / "structured_data" / "case_templates.json"
 _TPL: dict = {}
@@ -178,6 +307,12 @@ def _parse(raw: str) -> dict:
 # ─── Standard ─────────────────────────────────────────────────────────────────
 def get_legal_advice_v2(query: str, case_type: str = "general") -> dict:
     """Standard mode: fast, structured, grounded. Target: <1200ms."""
+    # Known-pattern fast path — bypasses RAG+LLM for well-understood intents,
+    # avoiding retrieval noise when classification is weak/ambiguous.
+    intent = _detect_intent(query)
+    if intent and intent in _STRUCTURED_QUICK:
+        data = dict(_STRUCTURED_QUICK[intent])
+        return _validate(data, data["case_type"], docs=[], is_deep=False)
     try:
         ctx     = understand_query(query, case_type=case_type)
         docs    = smart_retrieve(ctx, final_k=3)

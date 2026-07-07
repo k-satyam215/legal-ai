@@ -16,7 +16,9 @@ _RULES: dict[str, list[str]] = {
                    "provident fund","gratuity","naukri","kaam se nikala"],
     "criminal":   ["fraud","cheat","scam","threat","police","crime","fir","arrest","bail",
                    "extortion","blackmail","fake","cheating","thagi","dhoka","farzi","thana",
-                   "dhamki","paisa le gaya","chori","stolen","theft","hack","cyber","otp"],
+                   "dhamki","paisa le gaya","chori","stolen","theft","hack","cyber","otp",
+                   "kho gaya","kho gya","gum ho gaya","gum gaya","phone kho","mobile kho",
+                   "laptop kho","wallet kho","phone lost","mobile lost","gum ho","missing item"],
     "general":    ["noise","neighbour","disturbance","nuisance","neighbor","sound","society",
                    "water supply","maintenance","rwa","parking","boundary","documents"],
 }

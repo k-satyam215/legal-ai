@@ -133,11 +133,13 @@ def _build_primary(cleaned: str, case_type: str,
         parts.append("IPC " + " IPC ".join(entities["ipc_sections"]))
     if "acts" in entities:
         parts.extend(entities["acts"])
-    # Category anchor — critical for precision
-    if case_type in _ANCHORS:
-        parts.append(_ANCHORS[case_type])
+    # Specific intent expansion takes priority over generic category anchor —
+    # prevents a weak/'general' classification from dragging retrieval
+    # toward unrelated case law.
     if expansions:
         parts.append(expansions[0])
+    if case_type in _ANCHORS and not (case_type == "general" and expansions):
+        parts.append(_ANCHORS[case_type])
     return " ".join(parts)
 
 

@@ -188,3 +188,19 @@ def _reset_cache():
     cache_clear()
     yield
     cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limit():
+    """
+    Clear in-process rate-limit state between tests.
+
+    Without this, the /api/v2/* rate limiter added in main.py would
+    accumulate hits across the whole test session (many tests share the
+    TestClient's default client IP) and could start returning 429 for
+    later, unrelated tests.
+    """
+    from backend.core.rate_limit import reset
+    reset()
+    yield
+    reset()

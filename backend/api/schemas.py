@@ -51,14 +51,26 @@ class ClassifyResponse(BaseModel):
     reason: str
 
 class ChatMessage(BaseModel):
-    role: str
-    content: str
+    role: str = Field(..., pattern="^(user|assistant)$")
+    content: str = Field(..., min_length=1, max_length=4000)
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=1000)
-    history: list[ChatMessage] = Field(default_factory=list)
+    history: list[ChatMessage] = Field(default_factory=list, max_length=20)
     case_type: Optional[str] = Field(default="general")
-    session_id: Optional[str] = Field(default="default")
+    # No shared default here on purpose: routes.py generates a fresh random
+    # session_id per request when the client omits one. A shared literal
+    # default (e.g. "default") would put every client that doesn't track
+    # sessions into the SAME conversation memory bucket — a real cross-user
+    # data leak on this endpoint (unrelated users' facts/history mixing).
+    session_id: Optional[str] = Field(default=None, max_length=100)
+
+    @field_validator("message")
+    @classmethod
+    def message_cannot_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Message cannot be blank")
+        return value
 
 class ChatResponse(BaseModel):
     reply: str
@@ -66,6 +78,10 @@ class ChatResponse(BaseModel):
     needs_deep_advice: bool = False
     suggested_action: Optional[str] = None
     detected_intent: Optional[str] = None
+    # Echoed back so a client that didn't send one can persist it and reuse
+    # it on the next turn to keep continuity in the SAME session (see the
+    # comment on ChatRequest.session_id for why there's no shared default).
+    session_id: Optional[str] = None
 
 class NoticeRequest(BaseModel):
     notice_type: str

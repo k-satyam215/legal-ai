@@ -180,3 +180,22 @@ curl -X POST http://localhost:8000/api/v2/ask \
 | **Grounded Citations** | From retrieved docs only — zero hallucination |
 | **Speed** | Target 800–1200ms. Cache hit <50ms. |
 | **Dark UI** | Professional dark theme, chat bubbles, metrics |
+
+---
+
+## Security
+
+| Measure | Detail |
+|---|---|
+| **Rate limiting** | In-memory sliding window on all `/api/v2/*` routes (`RATE_LIMIT_MAX_REQUESTS` / `RATE_LIMIT_WINDOW_SECONDS`, default 30 req/60s per client IP). Returns `429` with `Retry-After`. Protects against abuse and runaway Groq API cost. |
+| **Request body size cap** | Declared bodies over `MAX_BODY_BYTES` (default 1MB) are rejected with `413` before Pydantic parses them, so an oversized payload can't be used for memory/bandwidth exhaustion. |
+| **Per-session isolation** | `/api/v2/chat` mints a fresh random `session_id` (`secrets.token_hex`) server-side when the client doesn't supply one, and echoes it back in the response. Previously defaulted to the literal string `"default"`, so any two clients that omitted it shared one conversation-memory bucket — fixed. |
+| **Security headers** | Every response sets `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`. |
+| **Strict CORS** | Origins restricted via `ALLOWED_ORIGINS`; methods limited to `GET`/`POST`; headers limited to `Content-Type`. |
+| **Input validation** | Pydantic length limits on every request field; control characters stripped (`_s()` in `routes.py`); `notice_type` restricted to an allow-list. |
+| **PDF-injection guard** | Notice text is HTML/XML-escaped before being handed to ReportLab's `Paragraph`, since it embeds LLM/user-supplied text and interprets a subset of markup. |
+| **No secret leakage** | Unhandled exceptions are logged server-side only; the client gets a generic message + `request_id` for support lookup (`_internal_error()` in `routes.py`). |
+| **XSS-safe frontend** | All dynamic text is HTML-escaped (`h()` in `frontend/app.py`) before being rendered via `unsafe_allow_html`. |
+| **Non-root containers** | All three Dockerfiles (`Dockerfile`, `Dockerfile.backend`, `Dockerfile.frontend`) create and switch to an unprivileged `appuser` before `CMD`, limiting blast radius if the app is ever compromised. |
+
+Rate limiting is in-memory and per-process by design (same graceful-fallback philosophy as the Redis cache) — for a multi-instance deployment, back it with Redis the same way `backend/core/cache.py` does.

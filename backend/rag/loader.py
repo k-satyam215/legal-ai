@@ -1,16 +1,29 @@
 """
 loader.py — One-time initialization: FAISS index + byte-offset metadata.
 Call initialize() once at FastAPI startup. All other modules use get_index() / get_model().
+
+Heavy ML dependencies (faiss, sentence-transformers -> torch) are imported
+lazily inside initialize(), not at module level. Importing torch/sentence-
+transformers can take a long time on a cold environment (large native
+libraries, first-run antivirus scanning on Windows, etc.), and every module
+that transitively imports backend.rag.loader — including test files that
+never call initialize() because FAISS access is mocked — was paying that
+cost just to import this file. Deferring the import means only the code
+path that actually needs FAISS/embeddings pays for them.
 """
+from __future__ import annotations
+
 import os
 import time
 import json
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
-import faiss
-from sentence_transformers import SentenceTransformer
+
+if TYPE_CHECKING:
+    import faiss
+    from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +32,10 @@ METADATA_JSONL   = os.getenv("METADATA_JSONL",   "backend/rag/faiss_index_metada
 OFFSETS_FILE     = os.getenv("OFFSETS_FILE",      "backend/rag/faiss_index_offsets.npy")
 EMBEDDING_MODEL  = os.getenv("EMBEDDING_MODEL",   "sentence-transformers/all-MiniLM-L6-v2")
 
-_faiss_index:  Optional[faiss.Index]         = None
-_st_model:     Optional[SentenceTransformer] = None
-_meta_offsets: Optional[np.ndarray]          = None
-_meta_file:    Optional[object]              = None
+_faiss_index:  Optional["faiss.Index"]         = None
+_st_model:     Optional["SentenceTransformer"] = None
+_meta_offsets: Optional[np.ndarray]            = None
+_meta_file:    Optional[object]                = None
 
 
 def _build_offset_index(jsonl_path: str, offsets_path: str) -> np.ndarray:
@@ -72,6 +85,10 @@ def initialize(
     global _faiss_index, _st_model, _meta_offsets, _meta_file
     if _faiss_index is not None:
         return
+
+    # Deferred import — see module docstring.
+    import faiss
+    from sentence_transformers import SentenceTransformer
 
     t0 = time.time()
     if not os.path.exists(faiss_path):

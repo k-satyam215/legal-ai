@@ -29,6 +29,11 @@ logger = logging.getLogger(__name__)
 DEFAULT_TTL    = 3600
 MAX_CACHE_SIZE = 500
 CACHE_PREFIX   = "legal_advisor:"
+# Tracks insertion order in Redis (sorted set, score = insert time) so the
+# Redis-backed cache can enforce the same MAX_CACHE_SIZE cap the in-memory
+# fallback does. Deliberately does NOT share CACHE_PREFIX so it's excluded
+# from the `keys(CACHE_PREFIX + "*")` scans used by cache_stats/cache_clear.
+ORDER_KEY      = "legal_advisor_cache_order"
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
@@ -106,7 +111,18 @@ def cache_set(query: str, data: dict, case_type: str = "", ttl: int = DEFAULT_TT
     r = _client()
     if r is not None:
         try:
-            r.setex(CACHE_PREFIX + k, ttl, json.dumps(data))
+            full_key = CACHE_PREFIX + k
+            r.setex(full_key, ttl, json.dumps(data))
+            # Record insertion order and trim down to MAX_CACHE_SIZE, oldest
+            # first — mirrors _mem_set's eviction so both backends behave the
+            # same way under sustained load, not just on happy-path reads.
+            r.zadd(ORDER_KEY, {full_key: time.time()})
+            overflow = r.zcard(ORDER_KEY) - MAX_CACHE_SIZE
+            if overflow > 0:
+                oldest = r.zrange(ORDER_KEY, 0, overflow - 1)
+                if oldest:
+                    r.delete(*oldest)
+                    r.zrem(ORDER_KEY, *oldest)
             return
         except Exception as exc:
             logger.warning(f"[Cache] Redis SET failed ({exc}), using in-memory")
@@ -118,7 +134,13 @@ def cache_stats() -> dict:
     if r is not None:
         try:
             keys = r.keys(CACHE_PREFIX + "*")
-            return {"backend": "redis", "host": REDIS_HOST, "port": REDIS_PORT, "active_keys": len(keys)}
+            # Redis TTL keys expire and disappear on their own, so there's no
+            # separate "expired but not yet swept" set the way the in-memory
+            # fallback has. total_keys == active_keys here, but both are
+            # returned so callers/tests get one consistent schema regardless
+            # of which backend is actually serving requests.
+            return {"backend": "redis", "host": REDIS_HOST, "port": REDIS_PORT,
+                    "total_keys": len(keys), "active_keys": len(keys)}
         except Exception as exc:
             logger.warning(f"[Cache] Redis STATS failed ({exc})")
     with _lock:
@@ -137,6 +159,7 @@ def cache_clear() -> None:
             keys = r.keys(CACHE_PREFIX + "*")
             if keys:
                 r.delete(*keys)
+            r.delete(ORDER_KEY)
         except Exception as exc:
             logger.warning(f"[Cache] Redis CLEAR failed ({exc})")
     with _lock:

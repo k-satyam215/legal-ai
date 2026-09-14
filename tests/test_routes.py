@@ -107,6 +107,26 @@ class TestChatEndpoint:
         resp = app_client.post("/api/v2/chat", json={"message": ""})
         assert resp.status_code == 422
 
+    def test_chat_without_session_id_gets_unique_session(self, app_client):
+        # Regression test: session_id used to default to the literal string
+        # "default", so every client that omitted it shared one conversation
+        # memory bucket — a cross-user data leak. Two independent requests
+        # with no session_id must now get two different, server-minted ids.
+        resp1 = app_client.post("/api/v2/chat", json={"message": "mera phone kho gaya"})
+        resp2 = app_client.post("/api/v2/chat", json={"message": "mera phone kho gaya"})
+        assert resp1.status_code == 200 and resp2.status_code == 200
+        sid1 = resp1.json().get("session_id")
+        sid2 = resp2.json().get("session_id")
+        assert sid1 and sid2
+        assert sid1 != sid2
+
+    def test_chat_echoes_client_supplied_session_id(self, app_client):
+        resp = app_client.post("/api/v2/chat", json={
+            "message": "mera phone kho gaya", "session_id": "my-fixed-session-123",
+        })
+        assert resp.status_code == 200
+        assert resp.json().get("session_id") == "my-fixed-session-123"
+
 
 class TestClassifyEndpoint:
     def test_classify_returns_case_type(self, app_client):
@@ -184,9 +204,22 @@ class TestResponseHeaders:
         assert "X-Request-ID" in resp.headers
         assert "X-Response-Time" in resp.headers
 
+    def test_oversized_body_rejected(self, app_client):
+        # main.py's limit_body_size middleware rejects declared bodies over
+        # MAX_BODY_BYTES before Pydantic ever parses them.
+        huge_query = "x" * 2_000_000  # 2MB, well past the 1MB default cap
+        resp = app_client.post("/api/v2/ask", json={"query": huge_query})
+        assert resp.status_code == 413
+
     def test_cors_headers_present(self, app_client):
+        # Uses the app's actual default ALLOWED_ORIGINS (main.py defaults to
+        # the Streamlit frontend's origin, http://localhost:8501). An origin
+        # that isn't in that allow-list is *correctly* rejected by
+        # CORSMiddleware with 400 — that's the security control working, not
+        # a bug — so this test must exercise a genuinely allowed origin.
         resp = app_client.options("/api/v2/ask", headers={
-            "Origin": "http://localhost:3000",
+            "Origin": "http://localhost:8501",
             "Access-Control-Request-Method": "POST",
         })
         assert resp.status_code in (200, 204)
+        assert resp.headers.get("access-control-allow-origin") == "http://localhost:8501"

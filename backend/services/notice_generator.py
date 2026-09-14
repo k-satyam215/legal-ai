@@ -2,6 +2,7 @@
 import os
 import logging
 from datetime import datetime
+from html import escape
 from backend.core.llm import call_llm
 from backend.core.prompts import NOTICE_SYSTEM, NOTICE_USER
 
@@ -54,10 +55,18 @@ def generate_notice_pdf(notice_text: str, sender_name: str, output_path: str = "
         line = line.strip()
         if not line:
             content.append(Spacer(1, 6))
-        elif line.isupper() and len(line) < 80:
-            content.append(Paragraph(line, bold_style))
+            continue
+        # reportlab's Paragraph interprets a subset of HTML/XML markup in its
+        # input string. notice_text can contain raw LLM output or user-typed
+        # facts/relief text (via routes.py), so unescaped '&', '<', '>' can
+        # either crash PDF generation (malformed tag) or render unintended
+        # markup. Escape before handing the line to Paragraph; this changes
+        # nothing for ordinary text.
+        safe_line = escape(line, quote=False)
+        if line.isupper() and len(line) < 80:
+            content.append(Paragraph(safe_line, bold_style))
         else:
-            content.append(Paragraph(line, normal_style))
+            content.append(Paragraph(safe_line, normal_style))
 
     doc.build(content)
     logger.info(f"[NoticeGenerator] PDF saved: {output_path}")

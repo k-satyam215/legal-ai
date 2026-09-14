@@ -1,7 +1,13 @@
 """AI Legal Advisor India — Streamlit Frontend v3"""
 import os, sys, tempfile, uuid
+from html import escape
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import streamlit as st
+
+
+def h(value) -> str:
+    """Escape dynamic text before it is embedded in HTML-enabled markdown."""
+    return escape(str(value or ""), quote=True)
 
 st.set_page_config(page_title="AI Legal Advisor — India", page_icon="⚖️",
                    layout="wide", initial_sidebar_state="expanded")
@@ -98,11 +104,11 @@ with tab_chat:
     else:
         for msg in st.session_state.chat_hist:
             if msg["role"]=="user":
-                st.markdown(f'<div class="chat-u">👤 {msg["content"]}</div><div class="clr"></div>',unsafe_allow_html=True)
+                st.markdown(f'<div class="chat-u">👤 {h(msg["content"])}</div><div class="clr"></div>',unsafe_allow_html=True)
             else:
                 css = "quick" if msg.get("qc") else "chat-b"
                 ic  = "📋" if msg.get("qc") else "⚖️"
-                st.markdown(f'<div class="{css}">{ic} {msg["content"]}</div><div class="clr"></div>',unsafe_allow_html=True)
+                st.markdown(f'<div class="{css}">{ic} {h(msg["content"])}</div><div class="clr"></div>',unsafe_allow_html=True)
                 if msg.get("nd"):
                     st.markdown("<div style='clear:both;margin:0 0 4px 6px;font-size:.77em;color:#4299e1'>💡 Detailed analysis ke liye 'Deep Analysis' tab use karein</div>",unsafe_allow_html=True)
 
@@ -136,23 +142,23 @@ with tab_ask:
         a = st.session_state.last_adv
         risk = a.get("risk_level","medium")
         ri = {"low":"🟢","medium":"🟡","high":"🔴"}.get(risk,"🟡")
-        st.markdown(f'<span class="issue">⚠️ {a.get("issue","")}</span>',unsafe_allow_html=True)
-        st.markdown(f'<span class="strategy">🎯 {a.get("strategy","")}</span>',unsafe_allow_html=True)
+        st.markdown(f'<span class="issue">⚠️ {h(a.get("issue"))}</span>',unsafe_allow_html=True)
+        st.markdown(f'<span class="strategy">🎯 {h(a.get("strategy"))}</span>',unsafe_allow_html=True)
         c1,c2,c3 = st.columns(3)
         with c1: st.metric("Case Type", a.get("case_type","").upper())
         with c2: st.metric("Risk", f"{ri} {risk.upper()}")
         with c3: st.metric("Notice", "✅" if a.get("notice_applicable") else "❌")
         if a.get("laws"):
             st.markdown("**⚖️ Laws**")
-            st.markdown(" ".join(f'<span class="law-chip">{l}</span>' for l in a["laws"]),unsafe_allow_html=True)
-        st.markdown(f'<div class="card" style="line-height:1.7">{a.get("analysis","")}</div>',unsafe_allow_html=True)
+            st.markdown(" ".join(f'<span class="law-chip">{h(l)}</span>' for l in a["laws"]),unsafe_allow_html=True)
+        st.markdown(f'<div class="card" style="line-height:1.7">{h(a.get("analysis"))}</div>',unsafe_allow_html=True)
         st.markdown("**📌 Steps**")
         for i,s in enumerate(a.get("steps",[]),1):
-            st.markdown(f'<div class="step"><b>{i}.</b> {s}</div>',unsafe_allow_html=True)
+            st.markdown(f'<div class="step"><b>{i}.</b> {h(s)}</div>',unsafe_allow_html=True)
         if a.get("follow_up_questions"):
             st.markdown("**❓ Follow-up**")
             for q in a["follow_up_questions"]:
-                st.markdown(f'<div class="fq">💭 {q}</div>',unsafe_allow_html=True)
+                st.markdown(f'<div class="fq">💭 {h(q)}</div>',unsafe_allow_html=True)
 
     q = st.chat_input("Legal question likhein...", key="ask_inp")
     if q:
@@ -182,38 +188,38 @@ with tab_deep:
         d    = st.session_state.last_deep
         risk = d.get("risk_level","medium")
         ri   = {"low":"🟢","medium":"🟡","high":"🔴"}.get(risk,"🟡")
-        st.markdown(f'<span class="issue">⚠️ {d.get("issue","")}</span>',unsafe_allow_html=True)
-        st.markdown(f'<span class="strategy">🎯 {d.get("strategy","")}</span>',unsafe_allow_html=True)
+        st.markdown(f'<span class="issue">⚠️ {h(d.get("issue"))}</span>',unsafe_allow_html=True)
+        st.markdown(f'<span class="strategy">🎯 {h(d.get("strategy"))}</span>',unsafe_allow_html=True)
         c1,c2,c3 = st.columns(3)
         with c1: st.metric("Case Type", d.get("case_type","").upper())
         with c2: st.metric("Risk", f"{ri} {risk.upper()}")
         with c3: st.metric("Timeline", d.get("timeline_estimate","N/A")[:20])
-        st.markdown(f'<div class="deep-card"><div style="font-size:.75em;color:#718096">PRIMARY LAW</div><div style="color:#90cdf4;font-weight:600">{d.get("primary_law","")}</div></div>',unsafe_allow_html=True)
+        st.markdown(f'<div class="deep-card"><div style="font-size:.75em;color:#718096">PRIMARY LAW</div><div style="color:#90cdf4;font-weight:600">{h(d.get("primary_law"))}</div></div>',unsafe_allow_html=True)
         if d.get("laws"):
-            st.markdown(" ".join(f'<span class="law-chip">{l}</span>' for l in d["laws"]),unsafe_allow_html=True)
-        st.markdown(f'<div class="deep-card"><div style="font-size:.75em;color:#718096">⚖️ LEGAL INTERPRETATION</div><div style="line-height:1.7;margin-top:6px">{d.get("legal_interpretation","")}</div></div>',unsafe_allow_html=True)
+            st.markdown(" ".join(f'<span class="law-chip">{h(l)}</span>' for l in d["laws"]),unsafe_allow_html=True)
+        st.markdown(f'<div class="deep-card"><div style="font-size:.75em;color:#718096">⚖️ LEGAL INTERPRETATION</div><div style="line-height:1.7;margin-top:6px">{h(d.get("legal_interpretation"))}</div></div>',unsafe_allow_html=True)
         sa = d.get("scenario_analysis",{})
         if sa:
             st.markdown("**📊 Scenario Analysis**")
             c1,c2 = st.columns(2)
-            with c1: st.markdown(f'<div class="best"><div style="font-size:.75em;color:#68d391">✅ BEST CASE</div>{sa.get("best_case","")}</div>',unsafe_allow_html=True)
-            with c2: st.markdown(f'<div class="worst"><div style="font-size:.75em;color:#fc8181">⚠️ WORST CASE</div>{sa.get("worst_case","")}</div>',unsafe_allow_html=True)
+            with c1: st.markdown(f'<div class="best"><div style="font-size:.75em;color:#68d391">✅ BEST CASE</div>{h(sa.get("best_case"))}</div>',unsafe_allow_html=True)
+            with c2: st.markdown(f'<div class="worst"><div style="font-size:.75em;color:#fc8181">⚠️ WORST CASE</div>{h(sa.get("worst_case"))}</div>',unsafe_allow_html=True)
             for ec in sa.get("edge_cases",[]):
-                st.markdown(f'<div class="edge"><span style="font-size:.75em;color:#b794f4">🔀 EDGE: </span>{ec}</div>',unsafe_allow_html=True)
+                st.markdown(f'<div class="edge"><span style="font-size:.75em;color:#b794f4">🔀 EDGE: </span>{h(ec)}</div>',unsafe_allow_html=True)
         st.markdown("**📌 Steps**")
         for i,s in enumerate(d.get("steps",[]),1):
-            st.markdown(f'<div class="step-deep"><b>{i}.</b> {s}</div>',unsafe_allow_html=True)
+            st.markdown(f'<div class="step-deep"><b>{i}.</b> {h(s)}</div>',unsafe_allow_html=True)
         if d.get("alternative_remedies"):
             st.markdown("**🔄 Alternatives**")
-            st.markdown(" ".join(f'<span class="law-alt">{a}</span>' for a in d["alternative_remedies"]),unsafe_allow_html=True)
+            st.markdown(" ".join(f'<span class="law-alt">{h(a)}</span>' for a in d["alternative_remedies"]),unsafe_allow_html=True)
         if d.get("risk_factors"):
             st.markdown("**⚠️ Risk Factors**")
             for rf in d["risk_factors"]:
-                st.markdown(f'<div class="step" style="border-left-color:#fc8181">⚠️ {rf}</div>',unsafe_allow_html=True)
+                st.markdown(f'<div class="step" style="border-left-color:#fc8181">⚠️ {h(rf)}</div>',unsafe_allow_html=True)
         if d.get("follow_up_questions"):
             st.markdown("**❓ Questions to Strengthen Case**")
             for q in d["follow_up_questions"]:
-                st.markdown(f'<div class="fq">💭 {q}</div>',unsafe_allow_html=True)
+                st.markdown(f'<div class="fq">💭 {h(q)}</div>',unsafe_allow_html=True)
 
 # ══ TAB 4: NOTICE ═══════════════════════════════════════════════════════════
 with tab_notice:

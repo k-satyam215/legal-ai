@@ -9,6 +9,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
+# Force CPU-only torch before installing requirements.txt (which pulls it
+# in transitively via sentence-transformers). Without this, pip grabs the
+# default CUDA/GPU build on Linux — multi-GB of unused NVIDIA packages
+# (cuda-toolkit, triton, nvidia-*) that this app never touches, since all
+# LLM calls go to the Groq API and FAISS runs as faiss-cpu. This alone cuts
+# build time and image size drastically.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .

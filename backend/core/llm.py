@@ -19,8 +19,12 @@ def call_llm(messages, model=LLM_MODEL, temperature=LLM_TEMPERATURE,
         try:
             r = client.chat.completions.create(
                 model=model, messages=messages,
-                temperature=temperature, max_tokens=max_tokens)
-            return r.choices[0].message.content
+                temperature=temperature, max_tokens=max_tokens,
+                reasoning_effort="low")
+            content = r.choices[0].message.content
+            if not content:
+                raise RuntimeError(f"Empty response from model (finish_reason={r.choices[0].finish_reason})")
+            return content
         except Exception as e:
             logger.warning(f"[LLM] Attempt {attempt}/{retries}: {e}")
             if attempt < retries: time.sleep(backoff**attempt)

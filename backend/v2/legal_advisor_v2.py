@@ -246,6 +246,26 @@ def _enrich(data: dict, case_type: str, is_deep: bool = False) -> dict:
             if len(data["steps"]) >= 3: break
     return data
 
+# ─── Key normalizer ────────────────────────────────────────────────────────
+# prompts.py's LLM-facing JSON schema (situation_summary, legal_view, risk)
+# and this module's validator schema (issue, analysis, risk_level) drifted
+# apart over separate edits. Bridge the alternate key names here instead of
+# silently losing real model output to the fallback-fill step below.
+def _normalize_keys(data: dict, case_type: str, is_deep: bool = False) -> dict:
+    if "issue" not in data and data.get("situation_summary"):
+        data["issue"] = data["situation_summary"]
+    if "analysis" not in data and data.get("legal_view"):
+        data["analysis"] = data["legal_view"]
+    if is_deep and "legal_interpretation" not in data and data.get("legal_view"):
+        data["legal_interpretation"] = data["legal_view"]
+    if "risk_level" not in data and data.get("risk"):
+        data["risk_level"] = data["risk"]
+    # case_type comes from the upstream classifier/router param — trust that
+    # over the model re-guessing (or omitting) it in its own JSON.
+    if case_type in _VALID_CT:
+        data["case_type"] = case_type
+    return data
+
 # ─── Validate ─────────────────────────────────────────────────────────────────
 def _validate(data: dict, case_type: str, docs: list[dict], is_deep: bool = False) -> dict:
     fb  = _DEEP_FALLBACK if is_deep else _FALLBACK
@@ -325,6 +345,7 @@ def get_legal_advice_v2(query: str, case_type: str = "general") -> dict:
             temperature=0.0, max_tokens=900,
         )
         data = _parse(raw)
+        data = _normalize_keys(data, case_type, is_deep=False)
         return _validate(data, case_type, docs, is_deep=False)
     except Exception as e:
         logger.error(f"[LegalAdvisor] {type(e).__name__}: {e} | raw_len={len(locals().get('raw','') or '')}")
@@ -346,6 +367,7 @@ def get_deep_analysis(query: str, case_type: str = "general", extra_context: str
             temperature=0.1, max_tokens=1500,
         )
         data = _parse(raw)
+        data = _normalize_keys(data, case_type, is_deep=True)
         return _validate(data, case_type, docs, is_deep=True)
     except Exception as e:
         logger.error(f"[DeepAnalysis] {type(e).__name__}: {e} | raw_len={len(locals().get('raw','') or '')}")

@@ -69,7 +69,7 @@ with st.sidebar:
     st.markdown("""<div style="text-align:center;padding:16px 0 8px">
     <div style="font-size:2.2em">⚖️</div>
     <div style="font-size:1.05em;font-weight:700;color:#90cdf4">AI Legal Advisor</div>
-    <div style="font-size:.73em;color:#718096">India • LLaMA-3.3-70b + RAG v3</div>
+    <div style="font-size:.73em;color:#718096">India • GPT-OSS-120B + RAG v3</div>
     </div>""", unsafe_allow_html=True)
     st.divider()
     st.markdown("**💬 Quick Examples**")
@@ -86,7 +86,7 @@ with st.sidebar:
     st.divider()
     st.markdown("<div style='font-size:.7em;color:#4a5568;text-align:center'>⚠️ Informational only.</div>",unsafe_allow_html=True)
 
-st.markdown("<h1 style='margin-bottom:2px;color:#e2e8f0'>⚖️ AI Legal Advisor — India</h1><p style='color:#718096;margin-top:0;font-size:.88em'>Indian Law + RAG + LLaMA-3.3-70b • v3</p>",unsafe_allow_html=True)
+st.markdown("<h1 style='margin-bottom:2px;color:#e2e8f0'>⚖️ AI Legal Advisor — India</h1><p style='color:#718096;margin-top:0;font-size:.88em'>Indian Law + RAG + GPT-OSS-120B • v3</p>",unsafe_allow_html=True)
 
 if not READY: st.error(f"⚠️ {ERR}"); st.stop()
 

@@ -211,7 +211,7 @@ def chat_response(message: str, history: list[dict],
                 {"role":"system","content":CHAT_SYSTEM},
                 {"role":"user","content":CHAT_USER.format(history=hist_text, message=enhanced_msg)},
             ],
-            temperature=0.15, max_tokens=160,
+            temperature=0.15, max_tokens=450,
         )
 
         reply      = raw.strip()

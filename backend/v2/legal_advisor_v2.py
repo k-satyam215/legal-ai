@@ -322,12 +322,12 @@ def get_legal_advice_v2(query: str, case_type: str = "general") -> dict:
                 {"role":"system","content":LEGAL_ADVISOR_SYSTEM},
                 {"role":"user","content":LEGAL_ADVISOR_USER.format(context=context,query=query,case_type=case_type)},
             ],
-            temperature=0.0, max_tokens=320,
+            temperature=0.0, max_tokens=900,
         )
         data = _parse(raw)
         return _validate(data, case_type, docs, is_deep=False)
     except Exception as e:
-        logger.error(f"[LegalAdvisor] {e}")
+        logger.error(f"[LegalAdvisor] {type(e).__name__}: {e} | raw_len={len(locals().get('raw','') or '')}")
         fb = dict(_FALLBACK); fb["case_type"] = case_type
         return _enrich(fb, case_type)
 
@@ -343,11 +343,11 @@ def get_deep_analysis(query: str, case_type: str = "general", extra_context: str
                 {"role":"system","content":DEEP_ANALYSIS_SYSTEM},
                 {"role":"user","content":DEEP_ANALYSIS_USER.format(context=context,query=query,case_type=case_type,extra_context=extra_context or "None")},
             ],
-            temperature=0.1, max_tokens=520,
+            temperature=0.1, max_tokens=1500,
         )
         data = _parse(raw)
         return _validate(data, case_type, docs, is_deep=True)
     except Exception as e:
-        logger.error(f"[DeepAnalysis] {e}")
+        logger.error(f"[DeepAnalysis] {type(e).__name__}: {e} | raw_len={len(locals().get('raw','') or '')}")
         fb = dict(_DEEP_FALLBACK); fb["case_type"] = case_type
         return _enrich(fb, case_type, is_deep=True)

@@ -3,6 +3,7 @@ import json
 import re
 import logging
 from backend.core.llm import call_llm
+from backend.core.security import prepare_for_prompt, sanitize_text, MAX_QUERY_CHARS
 from backend.core.prompts import TIMELINE_SYSTEM, TIMELINE_USER
 
 logger = logging.getLogger(__name__)
@@ -26,11 +27,14 @@ _FALLBACK = {
 
 def generate_timeline(case_type: str, facts: str, outcome: str) -> list[dict]:
     try:
+        case_type = sanitize_text(case_type, 50)
+        facts     = sanitize_text(facts, MAX_QUERY_CHARS)
+        outcome   = sanitize_text(outcome, 300)
         raw = call_llm(
             messages=[
                 {"role": "system", "content": TIMELINE_SYSTEM},
                 {"role": "user", "content": TIMELINE_USER.format(
-                    case_type=case_type, facts=facts, outcome=outcome)},
+                    case_type=case_type, facts=prepare_for_prompt(facts, MAX_QUERY_CHARS), outcome=outcome)},
             ],
             max_tokens=1024,
         )

@@ -4,6 +4,7 @@ Structured response display: LAW → ANALYSIS → STEPS → RISK → FOLLOW-UPS
 """
 import re, logging
 from backend.core.llm import call_llm
+from backend.core.security import prepare_for_prompt, sanitize_text, MAX_QUERY_CHARS, MAX_HISTORY_CHARS
 from backend.core.prompts import CHAT_SYSTEM, CHAT_USER
 from backend.v2.memory import format_history_for_llm, is_followup, get_memory
 
@@ -181,6 +182,7 @@ def _detect_intent(msg: str) -> str | None:
 def chat_response(message: str, history: list[dict],
                   case_type: str = "general", session_id: str = "default") -> dict:
     try:
+        message = sanitize_text(message, MAX_QUERY_CHARS)
         # 1. Quick card — instant, structured, professional
         intent = _detect_intent(message)
         if intent and intent in _QUICK_CARDS:
@@ -209,7 +211,9 @@ def chat_response(message: str, history: list[dict],
         raw = call_llm(
             messages=[
                 {"role":"system","content":CHAT_SYSTEM},
-                {"role":"user","content":CHAT_USER.format(history=hist_text, message=enhanced_msg)},
+                {"role":"user","content":CHAT_USER.format(
+                    history=prepare_for_prompt(hist_text, MAX_HISTORY_CHARS),
+                    message=prepare_for_prompt(enhanced_msg, MAX_QUERY_CHARS))},
             ],
             temperature=0.15, max_tokens=450,
         )

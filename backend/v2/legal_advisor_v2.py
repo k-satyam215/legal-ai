@@ -11,6 +11,7 @@ All ChatGPT gaps fixed:
 import json, re, logging
 from pathlib import Path
 from backend.core.llm import call_llm
+from backend.core.security import prepare_for_prompt, sanitize_text, MAX_QUERY_CHARS, MAX_CONTEXT_CHARS
 from backend.core.prompts import (
     LEGAL_ADVISOR_SYSTEM, LEGAL_ADVISOR_USER,
     DEEP_ANALYSIS_SYSTEM, DEEP_ANALYSIS_USER,
@@ -327,6 +328,7 @@ def _parse(raw: str) -> dict:
 # ─── Standard ─────────────────────────────────────────────────────────────────
 def get_legal_advice_v2(query: str, case_type: str = "general") -> dict:
     """Standard mode: fast, structured, grounded. Target: <1200ms."""
+    query = sanitize_text(query, MAX_QUERY_CHARS)
     # Known-pattern fast path — bypasses RAG+LLM for well-understood intents,
     # avoiding retrieval noise when classification is weak/ambiguous.
     intent = _detect_intent(query)
@@ -340,7 +342,10 @@ def get_legal_advice_v2(query: str, case_type: str = "general") -> dict:
         raw = call_llm(
             messages=[
                 {"role":"system","content":LEGAL_ADVISOR_SYSTEM},
-                {"role":"user","content":LEGAL_ADVISOR_USER.format(context=context,query=query,case_type=case_type)},
+                {"role":"user","content":LEGAL_ADVISOR_USER.format(
+                    context=prepare_for_prompt(context, MAX_CONTEXT_CHARS),
+                    query=prepare_for_prompt(query, MAX_QUERY_CHARS),
+                    case_type=case_type)},
             ],
             temperature=0.0, max_tokens=900,
         )
@@ -355,6 +360,8 @@ def get_legal_advice_v2(query: str, case_type: str = "general") -> dict:
 # ─── Deep ─────────────────────────────────────────────────────────────────────
 def get_deep_analysis(query: str, case_type: str = "general", extra_context: str = "") -> dict:
     """Deep mode: interpretation, edge cases, alternatives. Target: <2000ms."""
+    query = sanitize_text(query, MAX_QUERY_CHARS)
+    extra_context = sanitize_text(extra_context, MAX_QUERY_CHARS)
     try:
         ctx     = understand_query(query, case_type=case_type)
         docs    = smart_retrieve(ctx, final_k=4)
@@ -362,7 +369,11 @@ def get_deep_analysis(query: str, case_type: str = "general", extra_context: str
         raw = call_llm(
             messages=[
                 {"role":"system","content":DEEP_ANALYSIS_SYSTEM},
-                {"role":"user","content":DEEP_ANALYSIS_USER.format(context=context,query=query,case_type=case_type,extra_context=extra_context or "None")},
+                {"role":"user","content":DEEP_ANALYSIS_USER.format(
+                    context=prepare_for_prompt(context, MAX_CONTEXT_CHARS),
+                    query=prepare_for_prompt(query, MAX_QUERY_CHARS),
+                    case_type=case_type,
+                    extra_context=prepare_for_prompt(extra_context, MAX_QUERY_CHARS) or "None")},
             ],
             temperature=0.1, max_tokens=1500,
         )

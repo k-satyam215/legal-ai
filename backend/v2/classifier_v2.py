@@ -1,6 +1,7 @@
 """classifier_v2.py — Score-based + Hindi/Hinglish + LLM fallback."""
 import json, re, logging
 from backend.core.llm import call_llm
+from backend.core.security import prepare_for_prompt, sanitize_text, MAX_QUERY_CHARS
 from backend.core.config import CASE_TYPES
 from backend.core.prompts import CLASSIFIER_SYSTEM, CLASSIFIER_USER
 logger = logging.getLogger(__name__)
@@ -46,12 +47,13 @@ def _resolve(scores: dict[str, int]) -> tuple[str | None, float]:
     return None, 0.0
 
 def classify_query_v2(query: str) -> dict:
+    query = sanitize_text(query, MAX_QUERY_CHARS)
     scores = _score_rules(query)
     winner, conf = _resolve(scores)
     if winner: return {"case_type":winner,"confidence":conf,"reason":f"Rule: {scores[winner]} hits"}
     try:
         raw  = call_llm(messages=[{"role":"system","content":CLASSIFIER_SYSTEM},
-                                   {"role":"user","content":CLASSIFIER_USER.format(query=query)}],
+                                   {"role":"user","content":CLASSIFIER_USER.format(query=prepare_for_prompt(query, MAX_QUERY_CHARS))}],
                         temperature=0.0, max_tokens=80)
         raw  = raw.strip().replace("```json","").replace("```","")
         m    = re.search(r"\{[\s\S]*\}", raw)

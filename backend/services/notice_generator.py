@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from html import escape
 from backend.core.llm import call_llm
+from backend.core.security import prepare_for_prompt, sanitize_text, MAX_QUERY_CHARS
 from backend.core.prompts import NOTICE_SYSTEM, NOTICE_USER
 
 logger = logging.getLogger(__name__)
@@ -22,13 +23,21 @@ def generate_notice_text(
     recipient_name, recipient_address, facts, relief, law,
 ) -> str:
     try:
+        notice_type      = sanitize_text(notice_type, 100)
+        sender_name      = sanitize_text(sender_name, 200)
+        sender_address   = sanitize_text(sender_address, 500)
+        recipient_name   = sanitize_text(recipient_name, 200)
+        recipient_address= sanitize_text(recipient_address, 500)
+        facts            = sanitize_text(facts, MAX_QUERY_CHARS)
+        relief           = sanitize_text(relief, 300)
+        law              = sanitize_text(law, 300)
         return call_llm(
             messages=[
                 {"role": "system", "content": NOTICE_SYSTEM},
                 {"role": "user", "content": NOTICE_USER.format(
                     notice_type=notice_type, sender_name=sender_name,
                     sender_address=sender_address, recipient_name=recipient_name,
-                    recipient_address=recipient_address, facts=facts,
+                    recipient_address=recipient_address, facts=prepare_for_prompt(facts, MAX_QUERY_CHARS),
                     relief=relief, law=law,
                 )},
             ]

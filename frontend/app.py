@@ -61,6 +61,15 @@ try:
 except Exception as e:
     READY = False; ERR = str(e)
 
+from backend.core.rate_limit import is_allowed
+
+def _rate_guard(max_requests: int = 20, window_seconds: int = 60) -> tuple[bool, int]:
+    """Per-session (browser tab) sliding-window cap across all LLM-backed
+    tabs, shared with the FastAPI layer's limiter. Generous for real use,
+    tight enough to stop a script (or an abusive user) from burning Groq
+    quota/cost on this shared deployment."""
+    return is_allowed(st.session_state.sid, max_requests=max_requests, window_seconds=window_seconds)
+
 for k, v in [("chat_hist",[]),("last_adv",None),("last_deep",None),("sid",str(uuid.uuid4())[:12])]:
     if k not in st.session_state: st.session_state[k] = v
 
@@ -115,20 +124,28 @@ with tab_chat:
     pend = getattr(st.session_state,"_pend",None)
     if pend:
         del st.session_state._pend
-        hist_api = [{"role":m["role"],"content":m["content"]} for m in st.session_state.chat_hist[:-1]]
-        with st.spinner("🤔 ..."):
-            res = chat_response(pend, hist_api, session_id=st.session_state.sid)
-        st.session_state.chat_hist.append({"role":"assistant","content":res["reply"],"qc":res.get("quick_card"),"nd":res.get("needs_deep_advice")})
+        ok, retry = _rate_guard()
+        if not ok:
+            st.session_state.chat_hist.append({"role":"assistant","content":f"⏳ Thoda ruk jao, bahut jaldi-jaldi requests bhej rahe ho. {retry} second baad phir try karo."})
+        else:
+            hist_api = [{"role":m["role"],"content":m["content"]} for m in st.session_state.chat_hist[:-1]]
+            with st.spinner("🤔 ..."):
+                res = chat_response(pend, hist_api, session_id=st.session_state.sid)
+            st.session_state.chat_hist.append({"role":"assistant","content":res["reply"],"qc":res.get("quick_card"),"nd":res.get("needs_deep_advice")})
         st.rerun()
 
     inp = st.chat_input("Apna legal issue likho...")
     if inp:
         inp = inp.strip()
         st.session_state.chat_hist.append({"role":"user","content":inp})
-        hist_api = [{"role":m["role"],"content":m["content"]} for m in st.session_state.chat_hist[:-1]]
-        with st.spinner("🤔 ..."):
-            res = chat_response(inp, hist_api, session_id=st.session_state.sid)
-        st.session_state.chat_hist.append({"role":"assistant","content":res["reply"],"qc":res.get("quick_card"),"nd":res.get("needs_deep_advice")})
+        ok, retry = _rate_guard()
+        if not ok:
+            st.session_state.chat_hist.append({"role":"assistant","content":f"⏳ Thoda ruk jao, bahut jaldi-jaldi requests bhej rahe ho. {retry} second baad phir try karo."})
+        else:
+            hist_api = [{"role":m["role"],"content":m["content"]} for m in st.session_state.chat_hist[:-1]]
+            with st.spinner("🤔 ..."):
+                res = chat_response(inp, hist_api, session_id=st.session_state.sid)
+            st.session_state.chat_hist.append({"role":"assistant","content":res["reply"],"qc":res.get("quick_card"),"nd":res.get("needs_deep_advice")})
         st.rerun()
 
 # ══ TAB 2: QUICK ANALYSIS ════════════════════════════════════════════════════
@@ -162,9 +179,13 @@ with tab_ask:
 
     q = st.chat_input("Legal question likhein...", key="ask_inp")
     if q:
-        with st.spinner("⚖️ Analyzing..."):
-            st.session_state.last_adv = route_query_v2(q.strip())
-        st.rerun()
+        ok, retry = _rate_guard()
+        if not ok:
+            st.warning(f"⏳ Thoda ruk jao, bahut jaldi-jaldi requests bhej rahe ho. {retry} second baad phir try karo.")
+        else:
+            with st.spinner("⚖️ Analyzing..."):
+                st.session_state.last_adv = route_query_v2(q.strip())
+            st.rerun()
 
 # ══ TAB 3: DEEP ANALYSIS ════════════════════════════════════════════════════
 with tab_deep:
@@ -179,9 +200,13 @@ with tab_deep:
 
     if st.button("🧠 Run Deep Analysis", type="primary", use_container_width=True):
         if dq.strip():
-            with st.spinner("🧠 Deep analysis..."):
-                st.session_state.last_deep = route_deep_analysis(dq.strip(), extra_context=ext)
-            st.rerun()
+            ok, retry = _rate_guard()
+            if not ok:
+                st.warning(f"⏳ Thoda ruk jao, bahut jaldi-jaldi requests bhej rahe ho. {retry} second baad phir try karo.")
+            else:
+                with st.spinner("🧠 Deep analysis..."):
+                    st.session_state.last_deep = route_deep_analysis(dq.strip(), extra_context=ext)
+                st.rerun()
         else: st.warning("Please describe your situation.")
 
     if st.session_state.last_deep:
@@ -246,18 +271,22 @@ with tab_notice:
         if not all([sname,saddr,rname,raddr,facts,relief]):
             st.warning("⚠️ All fields required.")
         else:
-            with st.spinner("Drafting..."):
-                try:
-                    text = gen_notice_text(notice_type=ntype,sender_name=sname,sender_address=saddr,
-                                           recipient_name=rname,recipient_address=raddr,
-                                           facts=facts,relief=relief,law=law_ref or "applicable law")
-                    editable = st.text_area("Edit:", value=text, height=400, key="ned")
-                    if gpdf:
-                        with tempfile.NamedTemporaryFile(suffix=".pdf",delete=False) as tmp:
-                            pp = gen_notice_pdf(editable,sname,tmp.name)
-                            with open(pp,"rb") as f: st.download_button("📥 PDF",f.read(),"legal_notice.pdf","application/pdf")
-                    else: st.download_button("📥 TXT",editable,"legal_notice.txt","text/plain")
-                except Exception as e: st.error(f"Error: {e}")
+            ok, retry = _rate_guard()
+            if not ok:
+                st.warning(f"⏳ Thoda ruk jao, bahut jaldi-jaldi requests bhej rahe ho. {retry} second baad phir try karo.")
+            else:
+                with st.spinner("Drafting..."):
+                    try:
+                        text = gen_notice_text(notice_type=ntype,sender_name=sname,sender_address=saddr,
+                                               recipient_name=rname,recipient_address=raddr,
+                                               facts=facts,relief=relief,law=law_ref or "applicable law")
+                        editable = st.text_area("Edit:", value=text, height=400, key="ned")
+                        if gpdf:
+                            with tempfile.NamedTemporaryFile(suffix=".pdf",delete=False) as tmp:
+                                pp = gen_notice_pdf(editable,sname,tmp.name)
+                                with open(pp,"rb") as f: st.download_button("📥 PDF",f.read(),"legal_notice.pdf","application/pdf")
+                        else: st.download_button("📥 TXT",editable,"legal_notice.txt","text/plain")
+                    except Exception as e: st.error(f"Error: {e}")
 
 # ══ TAB 5: TIMELINE ══════════════════════════════════════════════════════════
 with tab_tl:
@@ -270,15 +299,19 @@ with tab_tl:
     if st.button("📅 Generate Timeline", type="primary"):
         if not tfacts or not tout: st.warning("Fill facts and outcome.")
         else:
-            with st.spinner("Generating..."):
-                try:
-                    ms = gen_timeline(ttype, tfacts, tout)
-                    for m in ms:
-                        badge = "🔴" if m.get("is_critical") else "⚪"
-                        with st.expander(f"{badge} Day {m.get('estimated_days_from_start','?')} — {m.get('phase','')} → {m.get('title','')}"):
-                            st.write(m.get("description",""))
-                            if m.get("escalation_path"): st.markdown(f"**🔀 If fails:** {m['escalation_path']}")
-                    import pandas as pd
-                    df = pd.DataFrame([{"Step":m.get("title","")[:28],"Day":m.get("estimated_days_from_start",0)} for m in ms])
-                    if not df.empty: st.bar_chart(df.set_index("Step")["Day"])
-                except Exception as e: st.error(f"Error: {e}")
+            ok, retry = _rate_guard()
+            if not ok:
+                st.warning(f"⏳ Thoda ruk jao, bahut jaldi-jaldi requests bhej rahe ho. {retry} second baad phir try karo.")
+            else:
+                with st.spinner("Generating..."):
+                    try:
+                        ms = gen_timeline(ttype, tfacts, tout)
+                        for m in ms:
+                            badge = "🔴" if m.get("is_critical") else "⚪"
+                            with st.expander(f"{badge} Day {m.get('estimated_days_from_start','?')} — {m.get('phase','')} → {m.get('title','')}"):
+                                st.write(m.get("description",""))
+                                if m.get("escalation_path"): st.markdown(f"**🔀 If fails:** {m['escalation_path']}")
+                        import pandas as pd
+                        df = pd.DataFrame([{"Step":m.get("title","")[:28],"Day":m.get("estimated_days_from_start",0)} for m in ms])
+                        if not df.empty: st.bar_chart(df.set_index("Step")["Day"])
+                    except Exception as e: st.error(f"Error: {e}")

@@ -49,3 +49,6 @@ redis==5.0.1
 
 # ─── Deploy-time data download (HuggingFace Spaces) ──────
 huggingface_hub[cli]==0.36.2
+
+# ─── LLM Security ───────────────────────────
+llm-guard==0.3.16

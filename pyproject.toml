@@ -29,6 +29,7 @@ dependencies = [
     "numpy==1.26.4",
     "redis==5.0.1",
     "huggingface_hub[cli]==0.36.2",
+    "llm-guard==0.3.16",
 ]
 
 [project.optional-dependencies]

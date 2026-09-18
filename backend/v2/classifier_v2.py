@@ -2,6 +2,7 @@
 import json, re, logging
 from backend.core.llm import call_llm
 from backend.core.security import prepare_for_prompt, sanitize_text, MAX_QUERY_CHARS
+from backend.core.injection_scanner import scan as scan_injection
 from backend.core.config import CASE_TYPES
 from backend.core.prompts import CLASSIFIER_SYSTEM, CLASSIFIER_USER
 logger = logging.getLogger(__name__)
@@ -48,6 +49,10 @@ def _resolve(scores: dict[str, int]) -> tuple[str | None, float]:
 
 def classify_query_v2(query: str) -> dict:
     query = sanitize_text(query, MAX_QUERY_CHARS)
+    is_inj, score = scan_injection(query)
+    if is_inj:
+        logger.warning(f"[Classifier] Blocked suspected prompt injection (score={score:.2f})")
+        return {"case_type":"general","confidence":0.5,"reason":"Blocked: suspected prompt injection"}
     scores = _score_rules(query)
     winner, conf = _resolve(scores)
     if winner: return {"case_type":winner,"confidence":conf,"reason":f"Rule: {scores[winner]} hits"}

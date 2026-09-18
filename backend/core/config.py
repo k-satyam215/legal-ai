@@ -19,3 +19,9 @@ CHUNK_OVERLAP: int = 80
 CASE_TYPES   = ["rent", "consumer", "criminal", "employment", "general"]
 RISK_LEVELS  = ["low", "medium", "high"]
 NOTICE_TYPES = ["deposit_refund","eviction","consumer_complaint","employment_termination","general"]
+
+# ML-based prompt-injection scanning (LLM Guard / DeBERTa classifier). Set the
+# HF Space "Variable" ENABLE_ML_INJECTION_SCAN=false to disable if the extra
+# ~700MB model load causes memory/startup issues on a constrained deployment
+# — the regex-based heuristic in backend/core/security.py still applies.
+ENABLE_ML_INJECTION_SCAN: bool = os.getenv("ENABLE_ML_INJECTION_SCAN", "true").lower() == "true"

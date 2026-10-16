@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from backend.v2.router_v2 import route_query_v2, route_deep_analysis
 from backend.v2.classifier_v2 import classify_query_v2
 from backend.v2.chat_engine import chat_response
+from backend.core.injection_scanner import scan as scan_injection
 from backend.services.notice_generator import generate_notice_text, generate_notice_pdf
 from backend.services.timeline_generator import generate_timeline
 from backend.api.schemas import (
@@ -13,6 +14,22 @@ from backend.api.schemas import (
 )
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _reject_if_injection(*texts) -> None:
+    """Run the ML prompt-injection scanner on every free-text field that will
+    reach an LLM prompt. Raises 400 on a hit. The scanner fails open (returns
+    clean) if the model can't load, so this never takes the API down."""
+    for t in texts:
+        if not isinstance(t, str) or not t.strip():
+            continue
+        is_inj, score = scan_injection(t)
+        if is_inj:
+            logger.warning("[Routes] Blocked suspected prompt injection (score=%.2f)", score)
+            raise HTTPException(
+                status_code=400,
+                detail="Request looks like a prompt-injection attempt. Please describe your legal issue in plain language.",
+            )
 
 def _s(text: str) -> str:
     return " ".join(re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]","",text).split()).strip()
@@ -32,6 +49,7 @@ async def ask(request: AskRequest, req: Request):
     try:
         q = _s(request.query)
         if not q: raise HTTPException(status_code=422, detail="Empty query")
+        _reject_if_injection(q)
         return route_query_v2(q, language=request.language or "en")
     except HTTPException: raise
     except Exception:
@@ -42,6 +60,7 @@ async def deep_ask(request: DeepAskRequest, req: Request):
     try:
         q = _s(request.query)
         if not q: raise HTTPException(status_code=422, detail="Empty query")
+        _reject_if_injection(q, request.extra_context or "")
         return route_deep_analysis(q, extra_context=request.extra_context or "", language=request.language or "en")
     except HTTPException: raise
     except Exception:
@@ -72,6 +91,7 @@ async def classify_case(request: ClassifyRequest, req: Request):
 
 @router.post("/generate-notice", response_model=NoticeResponse, tags=["Notice"])
 async def generate_notice_api(request: NoticeRequest, background_tasks: BackgroundTasks, req: Request):
+    _reject_if_injection(request.facts, request.relief)
     try:
         text = generate_notice_text(
             notice_type=request.notice_type, sender_name=request.sender_name,

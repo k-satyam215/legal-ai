@@ -22,6 +22,17 @@ RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
 _lock = threading.Lock()
 _hits: dict[str, deque] = defaultdict(deque)
 
+# Cap on distinct client keys tracked at once. Without this, a client rotating
+# its (spoofable) source key could grow _hits without bound.
+_MAX_TRACKED_KEYS = 10_000
+
+
+def _sweep(cutoff: float) -> None:
+    """Drop keys whose newest hit is older than the window. Caller holds _lock."""
+    stale = [k for k, q in _hits.items() if not q or q[-1] < cutoff]
+    for k in stale:
+        del _hits[k]
+
 
 def is_allowed(
     key: str,
@@ -37,6 +48,8 @@ def is_allowed(
     """
     now = time.time()
     with _lock:
+        if len(_hits) > _MAX_TRACKED_KEYS:
+            _sweep(now - window_seconds)
         q = _hits[key]
         cutoff = now - window_seconds
         while q and q[0] < cutoff:

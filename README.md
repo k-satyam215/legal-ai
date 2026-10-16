@@ -8,194 +8,151 @@ app_port: 8501
 pinned: false
 ---
 
-# AI Legal Advisor — India v2 (Production)
+# AI Legal Advisor — India
 
 ![CI](https://github.com/k-satyam215/legal-ai/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.11-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Stack: FastAPI + FAISS + LLaMA-3.3-70b + Streamlit
+**Stack:** FastAPI · FAISS + BM25 hybrid retrieval · Groq (`openai/gpt-oss-120b`) · LLM Guard · Redis (optional) · Streamlit
 
-A production-grade RAG legal advisor for Indian law — strict grounded citations (zero hallucination), Hindi/Hinglish-aware classification, multi-turn conversational memory, legal notice & timeline generation, and a dark-themed Streamlit UI.
+A security-conscious RAG legal assistant for Indian law: citation-grounded answers, Hindi/Hinglish-aware intent handling, multi-turn chat memory, legal notice and timeline generation, and layered prompt-injection defenses.
+
+> Informational tool only — not a substitute for advice from a qualified advocate.
 
 ---
 
-## Folder Structure
+## Architecture
+
+```
+Client (Streamlit / curl)
+        │
+        ▼
+FastAPI  ── middleware: body-size cap → rate limit → security headers
+        │
+        ├─ sanitize + ML injection scan (LLM Guard) on /ask, /deep-ask, /chat, /generate-notice
+        │
+        ▼
+classifier_v2 ─► smart_retriever (FAISS dense + BM25 sparse, section-preferring re-rank)
+        │
+        ▼
+legal_advisor_v2 / chat_engine ─► Groq LLM (tagged prompts, strict JSON) ─► response
+        │
+        └─ Redis TTL cache (falls back to in-memory)
+```
+
+## Folder structure
 
 ```
 legal-ai/
+├── main.py                      FastAPI app, middleware (body cap, rate limit, headers, CORS)
 ├── backend/
-│   ├── api/
-│   │   ├── routes.py          ← All endpoints incl. /chat
-│   │   └── schemas.py
+│   ├── api/                     routes.py, schemas.py
 │   ├── core/
-│   │   ├── cache.py           ← TTL cache (1hr, Redis-upgradeable)
+│   │   ├── cache.py             Redis TTL cache with in-memory fallback
 │   │   ├── config.py
-│   │   ├── llm.py
-│   │   └── prompts.py         ← Strict legal prompts
-│   ├── rag/
-│   │   ├── chunking.py
-│   │   ├── loader.py
-│   │   └── retriever.py
-│   ├── services/
-│   │   ├── notice_generator.py
-│   │   └── timeline_generator.py
-│   └── v2/                    ← All production logic
-│       ├── chat_engine.py     ← NEW: conversational chat
-│       ├── classifier_v2.py
-│       ├── legal_advisor_v2.py
-│       ├── query_understanding.py
-│       ├── router_v2.py
-│       └── smart_retriever.py
-├── data_pipeline/
-│   ├── cleaner/clean_text.py
-│   ├── chunker/chunking.py
-│   ├── embeddings/embedder.py
-│   ├── evaluation/
-│   │   ├── eval_v2.py
-│   │   └── test_cases.json
-│   ├── retriever/
-│   │   ├── build_index.py
-│   │   └── query_index.py
-│   ├── scraper/
-│   │   ├── indiancode_scraper.py
-│   │   └── indiankanoon_scraper.py
-│   ├── structured_data/case_templates.json
-│   └── pipeline.py
-├── frontend/
-│   └── app.py                 ← Dark UI with Chat tab
-├── tests/                     ← 100+ pytest tests, mocked LLM/FAISS
-│   ├── conftest.py
-│   ├── test_routes.py
-│   ├── test_classifier.py
-│   ├── test_query_understanding.py
-│   ├── test_smart_retriever.py
-│   ├── test_legal_advisor.py
-│   ├── test_chat_engine.py
-│   ├── test_memory.py
-│   ├── test_cache.py
-│   └── test_schemas.py
-├── .github/workflows/ci.yml   ← Lint + test + Docker build
-├── Dockerfile                 ← Backend image
-├── Dockerfile.frontend        ← Streamlit image
-├── docker-compose.yml
-├── .env.example
-├── main.py
+│   │   ├── injection_scanner.py LLM Guard (DeBERTa) prompt-injection scanner, fail-open
+│   │   ├── llm.py               Groq client with retries
+│   │   ├── prompts.py           Strict, tag-delimited prompts
+│   │   ├── rate_limit.py        In-memory sliding-window limiter
+│   │   └── security.py          Sanitization, tag neutralization, regex heuristic
+│   ├── rag/                     chunking, loader, retriever (FAISS + BM25)
+│   ├── services/                notice_generator.py, timeline_generator.py
+│   └── v2/                      chat_engine, classifier, legal_advisor, memory,
+│                                query_understanding, router, smart_retriever
+├── data_pipeline/               scrapers, cleaning, chunking, embeddings, index build, eval
+├── frontend/app.py              Streamlit UI
+├── tests/                       pytest suite (LLM, FAISS and the ML scanner are mocked)
+├── .github/workflows/           ci.yml (lint, test, Docker build), hf-deploy.yml
+├── Dockerfile · Dockerfile.backend · Dockerfile.frontend · docker-compose.yml
 └── requirements.txt
 ```
 
----
-
 ## Setup
 
-### Option A — Local (Python)
+### Local
 
 ```bash
-# 1. Add your data files:
-backend/rag/faiss_index.index
-backend/rag/faiss_index_metadata.json
-backend/rag/faiss_index_offsets.npy
-backend/rag/bm25_index.pkl
-backend/data/   ← your PDFs
+# 1. Data files (built by data_pipeline/ or downloaded at deploy time):
+#    backend/rag/faiss_index.index, faiss_index_metadata.json,
+#    faiss_index_offsets.npy, bm25_index.pkl
 
-# 2. Setup env
-cp .env.example .env
-# set GROQ_API_KEY in .env
-
-# 3. Install
+cp .env.example .env          # set GROQ_API_KEY
 pip install -r requirements.txt
-
-# 4. Run backend
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
-
-# 5. Run frontend (new terminal)
 cd frontend && streamlit run app.py
 ```
 
-### Option B — Docker
+### Docker
 
 ```bash
-cp .env.example .env
-# set GROQ_API_KEY in .env
-
+cp .env.example .env          # set GROQ_API_KEY
 docker compose up --build
-# Backend  → http://localhost:8000
-# Frontend → http://localhost:8501
+# Backend  → http://localhost:8000      Frontend → http://localhost:8501
 ```
-
----
 
 ## Testing
 
-100+ tests covering classification, RAG retrieval/re-ranking, legal advisor validation & fallbacks, chat engine, memory, cache, schemas, and full API integration — all LLM and FAISS calls are mocked, so no API key or index is required to run the suite.
-
 ```bash
 pip install -r requirements.txt
-pytest -v
-
-# with coverage
+pytest -q
 pytest --cov=backend --cov-report=term-missing
 ```
 
-CI runs lint (`ruff`) + the full test suite + Docker image builds on every push via GitHub Actions (`.github/workflows/ci.yml`).
+All LLM, FAISS and LLM Guard model calls are mocked, so the suite needs no API key, index, or model download. `tests/conftest.py` sets `ENABLE_ML_INJECTION_SCAN=false` so the ~700MB model is never loaded in tests; `tests/test_injection_scanner.py` exercises the scanner and the API gate with a stub model.
 
----
+CI (GitHub Actions) runs ruff, the test suite with coverage, and Docker image builds. Lint is currently advisory (it does not fail the build).
 
-## API Endpoints
+## API
 
 | Method | Path | Description |
 |---|---|---|
-| POST | /api/v2/ask | Deep legal Q&A (strict JSON) |
-| POST | /api/v2/chat | **NEW** Conversational chat |
-| POST | /api/v2/classify-case | Classify query |
-| POST | /api/v2/generate-notice | Legal notice |
-| POST | /api/v2/timeline | Legal timeline |
-| GET  | /health | FAISS + cache status |
-| GET  | /docs | Swagger UI |
+| POST | `/api/v2/ask` | Legal Q&A (strict JSON, cached) |
+| POST | `/api/v2/deep-ask` | Deep analysis with scenarios and strategy |
+| POST | `/api/v2/chat` | Multi-turn chat with quick-reference cards and memory |
+| POST | `/api/v2/classify-case` | Classify a query into a case type |
+| POST | `/api/v2/generate-notice` | Legal notice text (optional PDF) |
+| POST | `/api/v2/timeline` | Case timeline milestones |
+| GET | `/health` | FAISS, cache, memory and rate-limit status |
+| GET | `/metrics` | Request counters |
+| GET | `/docs` | Swagger UI |
 
-### Chat example
 ```bash
 curl -X POST http://localhost:8000/api/v2/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "mera phone kho gaya kya karun", "history": []}'
 ```
 
-### Ask example
-```bash
-curl -X POST http://localhost:8000/api/v2/ask \
-  -H "Content-Type: application/json" \
-  -d '{"query": "landlord deposit 50000 nahi de raha 3 mahine ho gaye"}'
-```
-
----
-
-## What's New in v2
+## Features
 
 | Feature | Detail |
 |---|---|
-| **Legal Chat** | Multi-turn conversational assistant. Quick reference cards for common issues. No RAG for instant replies. |
-| **Strict Prompts** | max_tokens=220, exact sections mandatory, no generic advice |
-| **Intent Expansion** | "phone lost" → ["IPC 379","CrPC 154","CEIR portal"] |
-| **Legal Section Preference** | Chunks with section numbers boosted over raw judgments |
-| **Grounded Citations** | From retrieved docs only — zero hallucination |
-| **Speed** | Target 800–1200ms. Cache hit <50ms. |
-| **Dark UI** | Professional dark theme, chat bubbles, metrics |
-
----
+| Hybrid retrieval | FAISS dense + BM25 sparse, with a boost for chunks that carry statute section numbers |
+| Intent expansion | "phone lost" → IPC 379, CrPC 154, CEIR portal |
+| Grounded answers | Citations come only from retrieved documents; strict JSON output |
+| Chat | Multi-turn memory, follow-up detection, instant quick-reference cards for common issues |
+| Caching | Redis TTL cache (1 hr) with in-memory fallback; cached repeat queries return in tens of ms |
+| Languages | English, Hindi and Hinglish queries |
 
 ## Security
 
-| Measure | Detail |
+| Layer | Detail |
 |---|---|
-| **Rate limiting** | In-memory sliding window on all `/api/v2/*` routes (`RATE_LIMIT_MAX_REQUESTS` / `RATE_LIMIT_WINDOW_SECONDS`, default 30 req/60s per client IP). Returns `429` with `Retry-After`. Protects against abuse and runaway Groq API cost. |
-| **Request body size cap** | Declared bodies over `MAX_BODY_BYTES` (default 1MB) are rejected with `413` before Pydantic parses them, so an oversized payload can't be used for memory/bandwidth exhaustion. |
-| **Per-session isolation** | `/api/v2/chat` mints a fresh random `session_id` (`secrets.token_hex`) server-side when the client doesn't supply one, and echoes it back in the response. Previously defaulted to the literal string `"default"`, so any two clients that omitted it shared one conversation-memory bucket — fixed. |
-| **Security headers** | Every response sets `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`. |
-| **Strict CORS** | Origins restricted via `ALLOWED_ORIGINS`; methods limited to `GET`/`POST`; headers limited to `Content-Type`. |
-| **Input validation** | Pydantic length limits on every request field; control characters stripped (`_s()` in `routes.py`); `notice_type` restricted to an allow-list. |
-| **PDF-injection guard** | Notice text is HTML/XML-escaped before being handed to ReportLab's `Paragraph`, since it embeds LLM/user-supplied text and interprets a subset of markup. |
-| **No secret leakage** | Unhandled exceptions are logged server-side only; the client gets a generic message + `request_id` for support lookup (`_internal_error()` in `routes.py`). |
-| **XSS-safe frontend** | All dynamic text is HTML-escaped (`h()` in `frontend/app.py`) before being rendered via `unsafe_allow_html`. |
-| **Non-root containers** | All three Dockerfiles (`Dockerfile`, `Dockerfile.backend`, `Dockerfile.frontend`) create and switch to an unprivileged `appuser` before `CMD`, limiting blast radius if the app is ever compromised. |
+| **Prompt-injection scanning** | LLM Guard's DeBERTa `PromptInjection` classifier runs on `/ask`, `/deep-ask`, `/chat` and `/generate-notice` input before any LLM call; hits return `400` (or a refusal reply in chat). Layered with a regex heuristic and tag-delimited prompts (`<user_query>`, `<retrieved_context>`) whose angle brackets are neutralized so input cannot forge a boundary. |
+| **Fail-open by design** | If the model cannot load (memory limits, download failure) or `ENABLE_ML_INJECTION_SCAN=false`, the scanner reports "clean" and the regex + tag-fencing layers still apply, so a constrained deployment never goes down because of this optional layer. |
+| **Rate limiting** | In-memory sliding window on `/api/v2/*` (default 30 req / 60 s per client IP), `429` + `Retry-After`. Tracked-key table is capped. |
+| **Request size cap** | Bodies declaring more than `MAX_BODY_BYTES` (1 MB) get `413` before parsing. |
+| **Per-session isolation** | `/chat` mints a random `session_id` server-side when the client omits one. |
+| **Input validation** | Pydantic length limits, control characters stripped, `notice_type` allow-list. |
+| **Security headers** | `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`. |
+| **Strict CORS** | Origins from `ALLOWED_ORIGINS`; `GET`/`POST` only; `Content-Type` header only. |
+| **PDF-injection guard** | Notice text is HTML/XML-escaped before ReportLab. |
+| **No secret leakage** | Exceptions are logged server-side; clients get a generic message plus `request_id`. |
+| **XSS-safe frontend** | Dynamic text is escaped before `unsafe_allow_html`. |
+| **Non-root containers** | All Dockerfiles drop to an unprivileged user. |
 
-Rate limiting is in-memory and per-process by design (same graceful-fallback philosophy as the Redis cache) — for a multi-instance deployment, back it with Redis the same way `backend/core/cache.py` does.
+### Known limitations
+
+- Rate limiting is per-process and in-memory. Behind several replicas each worker limits independently; back it with Redis for a multi-instance deployment.
+- The limiter keys on the first `X-Forwarded-For` entry, which a client can set. Deploy behind a trusted proxy that overwrites the header, or switch to the last entry added by your proxy.
+- ML injection detection is probabilistic; it reduces risk but is not a guarantee. It is one layer, not the only one.

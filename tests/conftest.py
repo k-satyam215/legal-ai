@@ -9,6 +9,11 @@ Strategy:
 import sys
 import os
 import json
+
+# Never load the ~700MB LLM Guard model during tests. The scanner is exercised
+# explicitly (with a stub model) in tests/test_injection_scanner.py. Must run
+# before any backend module is imported, because config reads this at import.
+os.environ.setdefault("ENABLE_ML_INJECTION_SCAN", "false")
 import pytest
 from unittest.mock import patch, MagicMock
 

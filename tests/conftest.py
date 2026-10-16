@@ -13,7 +13,8 @@ import json
 # Never load the ~700MB LLM Guard model during tests. The scanner is exercised
 # explicitly (with a stub model) in tests/test_injection_scanner.py. Must run
 # before any backend module is imported, because config reads this at import.
-os.environ.setdefault("ENABLE_ML_INJECTION_SCAN", "false")
+# Tests must not inherit a machine-level setting that triggers the 700MB scanner.
+os.environ["ENABLE_ML_INJECTION_SCAN"] = "false"
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -26,6 +27,14 @@ if ROOT not in sys.path:
 # ──────────────────────────────────────────────────────────────────────────
 # Mock retrieval documents — used across classifier / retriever / advisor tests
 # ──────────────────────────────────────────────────────────────────────────
+# Import patch targets once so unittest.mock resolves them consistently in a
+# fresh virtual environment; do not rely on import order from earlier tests.
+import backend.core.llm
+import backend.v2.classifier_v2
+import backend.v2.legal_advisor_v2
+import backend.v2.chat_engine
+import backend.services.notice_generator
+import backend.services.timeline_generator
 MOCK_DOCS_RENT = [
     {
         "text": "Section 108 of the Transfer of Property Act 1882 obligates the lessor to "
